@@ -22,8 +22,15 @@ import { createElectronTransport } from './transport'
 import { renderSlidesToPngBase64 } from '../export-render'
 import { isQcEnabled, mergeQcPages, qcSlidePage, QC_MAX_PAGES } from './slide-qc'
 import { useI18n, t as tGlobal, aiLangDirective, type TFunc } from '../i18n/locale'
-import { Markdown } from '@genoffice/ui'
-import { GensparkMark } from '../components/icons'
+import { Markdown, AiSettingsDialog } from '@genoffice/ui'
+import {
+  IconClock,
+  IconGear,
+  IconNewChat,
+  IconRefresh,
+  IconSidebarCollapseLeft,
+  IconSparkle,
+} from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
 import sendStop from '../assets/send-stop.png'
@@ -37,7 +44,6 @@ import fileVideoIcon from '../assets/file-video.png'
 import fileVoiceIcon from '../assets/file-voice.png'
 import fileDocumentIcon from '../assets/file-document.png'
 import fileGeneralIcon from '../assets/file-general.png'
-import { IconClock, IconNewChat, IconRefresh, IconSidebarCollapseLeft } from '../components/icons'
 
 interface ToolActivity {
   name: string
@@ -201,8 +207,8 @@ interface ChatEntry {
   streaming?: boolean
   /** the run failed and this user message was rolled back out of the model context */
   undelivered?: boolean
-  /** the run failed because Genspark is signed out — render an inline sign-in button */
-  loginRequired?: boolean
+  /** the run failed — render an inline "Configure AI" button so the user can fix their provider key/model */
+  needsSetup?: boolean
   tools?: ToolActivity[]
   /** Generation progress card (only one per turn, replaced in real time) */
   deckProgress?: DeckProgressSnapshot
@@ -330,6 +336,7 @@ export function AiPanel({
   const { t } = useI18n()
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [chat, setChat] = useState<ChatEntry[]>([])
   const [snapshots, setSnapshots] = useState<DeckSnapshot[]>([])
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
@@ -1182,22 +1189,16 @@ export function AiPanel({
             }
             return next
           })
-          // Signed-out failures get an inline sign-in button; detected via
-          // gsk status rather than matching the localized error text
-          void window.slidesApi
-            .aiGskStatus()
-            .then((status) => {
-              if (status.loggedIn) return
-              setChat((prev) => {
-                const next = [...prev]
-                const last = next.at(-1)
-                if (last?.role === 'assistant' && last.error) {
-                  next[next.length - 1] = { ...last, loginRequired: true }
-                }
-                return next
-              })
-            })
-            .catch(() => {})
+          // Any failed run surfaces an inline "Configure AI" affordance (BYOK:
+          // the user may need to add/fix an API key or model), no sign-in needed.
+          setChat((prev) => {
+            const next = [...prev]
+            const last = next.at(-1)
+            if (last?.role === 'assistant' && last.error) {
+              next[next.length - 1] = { ...last, needsSetup: true }
+            }
+            return next
+          })
           void finishHistoryBatch().finally(() => setBusy(false))
         },
       },
@@ -1547,7 +1548,7 @@ export function AiPanel({
   if (!open) {
     return (
       <button className="ai-rail" title={t('appAiRailExpand')} onClick={onExpand}>
-        <GensparkMark size={22} />
+        <IconSparkle size={22} />
       </button>
     )
   }
@@ -1574,14 +1575,22 @@ export function AiPanel({
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Genspark AI"
+        aria-label="AI Assistant"
       />
       <div className="ai-panel-header">
         <span className="ai-panel-title">
-          <GensparkMark size={22} />
+          <IconSparkle size={20} />
           {t('aiPanelTitle')}
         </span>
         <div className="ai-panel-header-actions">
+          <button
+            className="ai-header-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="AI settings"
+            aria-label="AI settings"
+          >
+            <IconGear size={15} />
+          </button>
           {chat.length > 0 && (
             <button className="ai-header-btn" onClick={newChat} title={t('aiNewChat')}>
               <IconNewChat size={15} />
@@ -1677,9 +1686,9 @@ export function AiPanel({
               {entry.error && (
                 <div className="ai-msg-error">{t('aiMsgError', { error: entry.error })}</div>
               )}
-              {entry.loginRequired && (
-                <button className="ai-login-btn" onClick={() => void window.slidesApi.aiGskLogin()}>
-                  {t('aiGskLoginBtn')}
+              {entry.needsSetup && (
+                <button className="ai-login-btn" onClick={() => setSettingsOpen(true)}>
+                  Configure AI
                 </button>
               )}
               {entry.deckProgress && <DeckProgressCard progress={entry.deckProgress} />}
@@ -1916,6 +1925,14 @@ export function AiPanel({
           </div>
         </div>
       )}
+      <AiSettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        api={{
+          getSettings: () => window.slidesApi.getAiSettings(),
+          setSettings: (settings) => window.slidesApi.setAiSettings(settings),
+        }}
+      />
     </aside>
   )
 }

@@ -4,7 +4,7 @@ import { AI_PROVIDERS, defaultAiSettings, resolveAiSettings } from '../src/provi
 describe('defaultAiSettings', () => {
   it('gives every provider its default model and an empty key by default', () => {
     const settings = defaultAiSettings()
-    expect(settings.provider).toBe('genspark')
+    expect(settings.provider).toBe('anthropic')
     for (const meta of AI_PROVIDERS) {
       expect(settings.providers[meta.id].apiKey).toBe('')
       expect(settings.providers[meta.id].model).toBe(meta.defaultModel)
@@ -61,5 +61,11 @@ describe('resolveAiSettings', () => {
     expect(resolved.providers.gemini).toEqual({ apiKey: 'stored-gemini-key', model: 'gemini-2.5-pro' })
     // provider not mentioned in stored.providers keeps the computed default
     expect(resolved.providers.anthropic.apiKey).toBe('preset-key')
+  })
+
+  it('remaps a stored genspark selection to the default BYOK provider', () => {
+    const defaults = defaultAiSettings()
+    const resolved = resolveAiSettings({ provider: 'genspark', providers: {} as never }, defaults)
+    expect(resolved.provider).toBe('anthropic')
   })
 })

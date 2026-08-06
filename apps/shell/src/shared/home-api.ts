@@ -1,4 +1,5 @@
 import type { UpdateChannel } from './update-api'
+import type { AiSettings } from '@genoffice/ai-provider'
 
 /** UI language; kept self-contained here (mirrors Lang in @genoffice/i18n) */
 export type UiLanguage =
@@ -103,6 +104,10 @@ export interface HomeApi {
   openLoginUrl(): Promise<void>
   /** log out (clears the saved API key; the login state is shared globally with the gsk CLI) */
   accountLogout(): Promise<void>
+  /** current AI provider settings (bring-your-own-key); stored in the shared userData ai-settings.json */
+  getAiSettings(): Promise<AiSettings>
+  /** persist AI provider settings */
+  setAiSettings(settings: AiSettings): Promise<void>
   /** app version (from package.json / electron app.getVersion) */
   getAppVersion(): Promise<string>
   /** whether the first-run onboarding has been completed or skipped (persisted in userData/app-settings.json) */
@@ -199,6 +204,8 @@ export const HOME_CHANNELS = {
   accountLoginEvent: 'home:account-login-event',
   accountLoginOpenUrl: 'home:account-login-open-url',
   accountLogout: 'home:account-logout',
+  aiGetSettings: 'ai:get-settings',
+  aiSetSettings: 'ai:set-settings',
   getAppVersion: 'home:get-app-version',
   onboardingSeen: 'home:onboarding-seen',
   setOnboardingSeen: 'home:set-onboarding-seen',

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { AiComposer, AiTypingIndicator } from '@genoffice/ui'
-import { GensparkMark } from '../ribbon-icons'
 import type { ChangePlan } from '../../domain/workbook.types'
 import { ATTACHMENT_IMAGE_EXTS, type AttachmentMeta } from '../../shared/desktop-api'
 import { useI18n, type TFunc } from '../i18n/locale'
@@ -140,8 +139,8 @@ export interface AiChatMessage {
   readonly isError?: boolean | undefined
   /** the run failed and this user message was rolled back out of the model context */
   readonly undelivered?: boolean | undefined
-  /** the run failed because Genspark is signed out — render an inline sign-in button */
-  readonly loginRequired?: boolean | undefined
+  /** the run failed — render an inline "Configure AI" button so the user can fix their provider key/model */
+  readonly needsSetup?: boolean | undefined
   /** Set when this message reflects an auto-applied plan; renders an inline [Undo] button. */
   readonly autoApplied?: { readonly opCount: number } | undefined
 }
@@ -167,6 +166,7 @@ export function AiChatPanel({
   onUndo,
   onExpand,
   onCollapse,
+  onOpenSettings,
 }: {
   readonly isOpen: boolean
   /** the workbook has cells with content — empty workbooks get "build me a sheet" copy instead */
@@ -194,6 +194,7 @@ export function AiChatPanel({
   readonly onUndo: () => void
   readonly onExpand: () => void
   readonly onCollapse: () => void
+  readonly onOpenSettings: () => void
 }): React.JSX.Element {
   const { t } = useI18n()
   const chatRef = useRef<HTMLDivElement | null>(null)
@@ -328,7 +329,7 @@ export function AiChatPanel({
     return (
       <aside className="copilot collapsed">
         <button className="expand-copilot" onClick={onExpand} title={t('aiOpenAssistant')}>
-          <GensparkMark size={22} />
+          <AiSparkle size={22} />
         </button>
       </aside>
     )
@@ -389,14 +390,22 @@ export function AiChatPanel({
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Genspark"
+        aria-label="AI Assistant"
       />
       <header className="ai-panel-header">
         <span className="ai-panel-title">
-          <GensparkMark size={22} />
-          Genspark
+          <AiSparkle size={20} />
+          AI Assistant
         </span>
         <div className="ai-panel-header-actions">
+          <button
+            className="ai-header-btn"
+            onClick={onOpenSettings}
+            title="AI settings"
+            aria-label="AI settings"
+          >
+            <IconGear size={15} />
+          </button>
           {(chat.length > 0 || historicChat.length > 0) && (
             <button className="ai-header-btn" onClick={onNewChat} title={t('aiNewChat')}>
               <IconNewChat size={15} />
@@ -474,12 +483,9 @@ export function AiChatPanel({
                     </button>
                   </div>
                 )}
-                {entry.loginRequired && (
-                  <button
-                    className="ai-login-btn"
-                    onClick={() => void window.desktopApi.aiGskLogin()}
-                  >
-                    {t('aiGskLoginBtn')}
+                {entry.needsSetup && (
+                  <button className="ai-login-btn" onClick={onOpenSettings}>
+                    Configure AI
                   </button>
                 )}
               </>
@@ -691,6 +697,35 @@ function IconCollapse({ size }: { size: number }): React.JSX.Element {
       <path d="M5.5 2.5v11" />
       <path d="M12.5 8H8.1M9.8 5.9 7.7 8l2.1 2.1" strokeWidth="1.3" strokeLinejoin="round" />
     </Svg>
+  )
+}
+
+function IconGear({ size }: { size: number }): React.JSX.Element {
+  return (
+    <Svg size={size}>
+      <circle cx="8" cy="8" r="1.78" />
+      <path d="M 8 2.98 v 1.62 M 8 11.4 v 1.62 M 13.02 8 h -1.62 M 4.6 8 h -1.62 M 11.56 4.44 l -1.13 1.13 M 5.57 10.43 l -1.13 1.13 M 11.56 11.56 10.43 10.43 M 5.57 5.57 4.44 4.44" />
+    </Svg>
+  )
+}
+
+/** neutral AI sparkle glyph (replaces the Genspark brand mark) */
+function AiSparkle({ size = 20 }: { size?: number }): React.JSX.Element {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 1.8 9.6 6.4 14.2 8 9.6 9.6 8 14.2 6.4 9.6 1.8 8 6.4 6.4Z" />
+      <path d="M12.4 2.4v2.2M11.3 3.5h2.2" strokeWidth="1.1" />
+    </svg>
   )
 }
 

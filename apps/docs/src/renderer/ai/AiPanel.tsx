@@ -13,9 +13,7 @@ import { DOCS_AGENT_MAX_TURNS, DOCS_CONTINUE_INSTRUCTION } from './continuation'
 import { createFilesSkill } from './files-skill'
 import { createElectronTransport } from './transport'
 import { useI18n, t as tModule, aiLangDirective, type StringKey } from '../i18n/locale'
-import { Markdown } from '@genoffice/ui'
-import { AiComposer, AiTypingIndicator } from '@genoffice/ui'
-import { GensparkMark } from '../components/icons'
+import { Markdown, AiComposer, AiTypingIndicator, AiSettingsDialog } from '@genoffice/ui'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
 import sendStop from '../assets/send-stop.png'
@@ -29,7 +27,7 @@ import fileVideoIcon from '../assets/file-video.png'
 import fileVoiceIcon from '../assets/file-voice.png'
 import fileDocumentIcon from '../assets/file-document.png'
 import fileGeneralIcon from '../assets/file-general.png'
-import { IconClock, IconNewChat, IconSidebarCollapse } from '../components/icons'
+import { IconClock, IconNewChat, IconSidebarCollapse, IconGear } from '../components/icons'
 
 interface Snapshot {
   label: string
@@ -71,8 +69,8 @@ interface ChatEntry {
   turnLimit?: boolean
   /** the run failed and this user message was rolled back out of the model context */
   undelivered?: boolean
-  /** the run failed because Genspark is signed out — render an inline sign-in button */
-  loginRequired?: boolean
+  /** the run failed — render an inline "Configure AI" button so the user can fix their provider key/model */
+  needsSetup?: boolean
   /** tool executions performed during this assistant turn */
   tools?: ToolActivity[]
 }
@@ -247,6 +245,7 @@ export function AiPanel({
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [attachments, setAttachments] = useState<AttachmentMeta[]>([])
   const [attachNotice, setAttachNotice] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   /** data-URL previews for image attachments, keyed by path (Genspark composer thumbnails) */
   const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
   /** image paths with a read already issued — one readAttachmentImage per attach, even while pending */
@@ -584,22 +583,16 @@ export function AiPanel({
             }
             return next
           })
-          // Signed-out failures get an inline sign-in button; detected via
-          // gsk status rather than matching the localized error text
-          void window.desktop
-            .aiGskStatus()
-            .then((status) => {
-              if (status.loggedIn) return
-              setChat((prev) => {
-                const next = [...prev]
-                const last = next.at(-1)
-                if (last?.role === 'assistant' && last.error) {
-                  next[next.length - 1] = { ...last, loginRequired: true }
-                }
-                return next
-              })
-            })
-            .catch(() => {})
+          // Any failed run surfaces an inline "Configure AI" affordance (BYOK:
+          // the user may need to add/fix an API key or model), no sign-in needed.
+          setChat((prev) => {
+            const next = [...prev]
+            const last = next.at(-1)
+            if (last?.role === 'assistant' && last.error) {
+              next[next.length - 1] = { ...last, needsSetup: true }
+            }
+            return next
+          })
           setBusy(false)
         },
       },
@@ -817,7 +810,7 @@ export function AiPanel({
   if (!open) {
     return (
       <button className="ai-rail" title={t('appExpandAiPanel')} onClick={onExpand}>
-        <GensparkMark size={22} />
+        <AiSparkle size={22} />
       </button>
     )
   }
@@ -848,10 +841,18 @@ export function AiPanel({
       />
       <div className="ai-panel-header">
         <span className="ai-panel-title">
-          <GensparkMark size={22} />
+          <AiSparkle size={20} />
           {t('aiPanelTitle')}
         </span>
         <div className="ai-panel-header-actions">
+            <button
+              className="ai-header-btn"
+              onClick={() => setSettingsOpen(true)}
+              title="AI settings"
+              aria-label="AI settings"
+            >
+              <IconGear size={16} />
+            </button>
           {chat.length > 0 && (
             <button className="ai-header-btn" onClick={newChat} title={t('aiNewChatTitle')}>
               <IconNewChat size={16} />
@@ -947,9 +948,9 @@ export function AiPanel({
               {entry.error && (
                 <div className="ai-msg-error">{t('aiErrorPrefix', { error: entry.error })}</div>
               )}
-              {entry.loginRequired && (
-                <button className="ai-login-btn" onClick={() => void window.desktop.aiGskLogin()}>
-                  {t('aiGskLoginBtn')}
+              {entry.needsSetup && (
+                <button className="ai-login-btn" onClick={() => setSettingsOpen(true)}>
+                  Configure AI
                 </button>
               )}
               {showToolbar && (
@@ -1144,7 +1145,35 @@ export function AiPanel({
           }
         />
       </div>
+      <AiSettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        api={{
+          getSettings: () => window.desktop.getAiSettings(),
+          setSettings: (settings) => window.desktop.setAiSettings(settings),
+        }}
+      />
     </aside>
+  )
+}
+
+/** neutral AI sparkle glyph (replaces the Genspark brand mark) */
+function AiSparkle({ size = 20 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 1.8 9.6 6.4 14.2 8 9.6 9.6 8 14.2 6.4 9.6 1.8 8 6.4 6.4Z" />
+      <path d="M12.4 2.4v2.2M11.3 3.5h2.2" strokeWidth="1.1" />
+    </svg>
   )
 }
 

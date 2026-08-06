@@ -141,7 +141,7 @@ export function RibbonHomeTab({ rb }: { rb: RibbonTabCtx }) {
   }
   return (
     <>
-      <Group label="Genspark AI">
+      <Group label="AI Assistant">
         <button
           className={`rb-big ai-entry${aiOpen ? ' active' : ''}`}
           title={t('aiOpenAssistant')}
@@ -150,7 +150,7 @@ export function RibbonHomeTab({ rb }: { rb: RibbonTabCtx }) {
           <span className="rb-big-icon">
             <GensparkMark size={26} />
           </span>
-          <span>Genspark AI</span>
+          <span>AI Assistant</span>
         </button>
         <button
           className="rb-big ai-entry"

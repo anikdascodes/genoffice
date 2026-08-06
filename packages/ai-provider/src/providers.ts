@@ -26,21 +26,6 @@ export function gensparkAttributionHeaders(baseUrl?: string): Record<string, str
 
 export const AI_PROVIDERS: AiProviderMeta[] = [
   {
-    id: 'genspark',
-    label: 'Genspark',
-    models: [
-      'claude-opus-4-7',
-      'claude-opus-4-8',
-      'claude-sonnet-4-6',
-      'claude-haiku-4-5',
-      'gpt-5.2',
-      'gemini-3.1-pro-preview',
-      'gemini-3-flash-preview',
-    ],
-    defaultModel: 'claude-opus-4-7',
-    keyPlaceholder: 'Not required - sign in to Genspark',
-  },
-  {
     id: 'anthropic',
     label: 'Claude',
     models: [
@@ -104,7 +89,7 @@ export function defaultAiSettings(
       baseUrl: meta.needsBaseUrl ? '' : undefined,
     }
   }
-  return { provider: 'genspark', providers }
+  return { provider: 'anthropic', providers }
 }
 
 /**
@@ -127,8 +112,12 @@ export function resolveAiSettings(
     }
     return defaults
   }
+  // Genspark sign-in was removed; a stored 'genspark' selection now falls
+  // back to the default (BYOK) provider instead of hitting the gsk proxy.
+  const provider =
+    stored.provider === 'genspark' ? defaults.provider : (stored.provider ?? defaults.provider)
   return {
-    provider: stored.provider ?? defaults.provider,
+    provider,
     providers: { ...defaults.providers, ...stored.providers },
   }
 }

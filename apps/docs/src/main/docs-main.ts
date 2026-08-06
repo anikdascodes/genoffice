@@ -45,7 +45,6 @@ import {
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import {
-  ensureGenofficeLogin,
   gskApiKey,
   gskLoginInfo,
   hasGskAuth,
@@ -2477,8 +2476,6 @@ export function registerAiIpc(): void {
   ipcMain.handle('ai:get-settings', (): AiSettings => {
     const stored = readJson<Partial<AiSettings> & LegacyAiSettings>(SETTINGS_PATH(), {})
     const settings = resolveAiSettings(stored, defaultAiSettings())
-    // AI features all go through Genspark (gsk login); legacy settings with another provider are reset
-    settings.provider = 'genspark'
     return settings
   })
 
@@ -2494,7 +2491,8 @@ export function registerAiIpc(): void {
   )
 
   ipcMain.handle('ai:gsk-login', () => {
-    ensureGenofficeLogin((url) => void shell.openExternal(url))
+    // Genspark sign-in removed — AI is bring-your-own-key only
+    return false
   })
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {

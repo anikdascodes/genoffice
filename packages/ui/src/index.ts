@@ -1,4 +1,5 @@
 export { AiComposer } from './AiComposer'
 export { AiTypingIndicator } from './AiTypingIndicator'
+export { AiSettingsDialog, type AiSettingsApi } from './AiSettingsDialog'
 export { IconSend, IconStop, type IconProps } from './icons'
 export { Markdown } from './Markdown'

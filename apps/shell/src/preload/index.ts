@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
+import type { AiSettings } from '@genoffice/ai-provider'
 import type {
   AccountLoginEvent,
   AccountStatus,
@@ -142,6 +143,13 @@ const homeApi: HomeApi = {
   },
   async accountLogout() {
     await ipcRenderer.invoke(HOME_CHANNELS.accountLogout)
+  },
+  async getAiSettings() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.aiGetSettings)
+    return result as AiSettings
+  },
+  async setAiSettings(settings) {
+    await ipcRenderer.invoke(HOME_CHANNELS.aiSetSettings, settings)
   },
   async getAppVersion() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAppVersion)

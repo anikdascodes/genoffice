@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { AiSettingsDialog } from '@genoffice/ui'
 
 import {
   CaretIcon,
@@ -269,6 +270,7 @@ export function ExcelShell({
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState<RibbonTab>('Home')
   const [isCopilotOpen, setIsCopilotOpen] = useState(true)
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false)
   const [showFormatCells, setShowFormatCells] = useState(false)
   const [axisSizeTarget, setAxisSizeTarget] = useState<'row' | 'col' | null>(null)
   const [showLinkDialog, setShowLinkDialog] = useState(false)
@@ -438,6 +440,7 @@ export function ExcelShell({
           onUndo={onUndo}
           onExpand={() => setIsCopilotOpen(true)}
           onCollapse={() => setIsCopilotOpen(false)}
+          onOpenSettings={() => setAiSettingsOpen(true)}
         />
         <div className="sheet-main">
           {/* Excel's formula-bar row, Name Box only for now (fx bar TBD). */}
@@ -593,6 +596,16 @@ export function ExcelShell({
           initialFooter={pageLayout.footer ?? null}
           onApply={onApplyHeaderFooter}
           onClose={() => setShowHeaderFooter(false)}
+        />
+      )}
+      {aiSettingsOpen && (
+        <AiSettingsDialog
+          open={aiSettingsOpen}
+          onClose={() => setAiSettingsOpen(false)}
+          api={{
+            getSettings: () => window.desktopApi.getAiSettings(),
+            setSettings: (settings) => window.desktopApi.setAiSettings(settings),
+          }}
         />
       )}
     </main>
@@ -2062,7 +2075,7 @@ function Ribbon({
             <GensparkMark size={26} />
           </span>
           <span>
-            <strong>Genspark AI</strong>
+            <strong>{t('appGroupAiAssistant')}</strong>
           </span>
         </button>
         <button
