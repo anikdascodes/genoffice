@@ -19,7 +19,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: '第 {n} 页:截图失败,已跳过',
     aiQcStopped: '版式检查已停止',
     aiQcCapped: '其余 {count} 页未检查(单次上限)',
-    aiGskLoginBtn: '登录 Genspark',
     aiUndelivered: '未送达,本条不会生效',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: '打开 AI 助手',
@@ -70,7 +69,7 @@ export const aiStrings = defineStrings({
     aiErrEmptyOutput: '空输出',
     aiErrUnknown: '未知错误',
     aiErrStreamTimeout: 'AI 请求超时：网络长时间无响应，已停止。请检查网络后重试',
-    aiCreditsExhausted: 'Genspark 积分已用完，请前往 genspark.ai/pricing 充值后重试',
+    aiCreditsExhausted: '提供方拒绝了请求 — API 密钥可能无效或配额已用尽。请在 AI 设置中检查后重试。',
     aiErrRequestFailed: '请求发送失败: {msg}',
     aiErrGenerateFailed: '生成失败',
     aiErrRegenFailed: '重做页面失败',
@@ -208,7 +207,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Page {n}: screenshot failed, skipped',
     aiQcStopped: 'Layout check stopped',
     aiQcCapped: '{count} more page(s) not checked (per-run cap)',
-    aiGskLoginBtn: 'Sign in to Genspark',
     aiUndelivered: 'Not delivered — this message had no effect',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'Open AI assistant',
@@ -264,8 +262,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Unknown error',
     aiErrStreamTimeout:
       'AI request timed out: no response from the network, so the run was stopped. Check your connection and try again',
-    aiCreditsExhausted:
-      'Your Genspark credits have run out. Visit genspark.ai/pricing to top up, then try again',
+    aiCreditsExhausted: 'The provider rejected the request — the API key may be invalid or the quota exceeded. Check AI Settings and try again.',
     aiErrRequestFailed: 'Failed to send request: {msg}',
     aiErrGenerateFailed: 'Generation failed',
     aiErrRegenFailed: 'Slide redo failed',
@@ -403,7 +400,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'ページ {n}:スクリーンショット失敗のためスキップ',
     aiQcStopped: 'レイアウトチェックを停止しました',
     aiQcCapped: '残り {count} ページは未チェック(1回の上限)',
-    aiGskLoginBtn: 'Genspark にサインイン',
     aiUndelivered: '未送信 — このメッセージは反映されていません',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'AI アシスタントを開く',
@@ -458,8 +454,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: '不明なエラー',
     aiErrStreamTimeout:
       'AIリクエストがタイムアウトしました：ネットワークからの応答がないため中断しました。接続を確認して再試行してください',
-    aiCreditsExhausted:
-      'Gensparkクレジットを使い切りました。genspark.ai/pricing でチャージしてから再試行してください',
+    aiCreditsExhausted: 'プロバイダーがリクエストを拒否しました — API キーが無効か、割り当てを超えている可能性があります。AI 設定をご確認のうえ再試行してください。',
     aiErrRequestFailed: 'リクエストの送信に失敗しました: {msg}',
     aiErrGenerateFailed: '生成に失敗しました',
     aiErrRegenFailed: 'ページの再生成に失敗しました',
@@ -597,7 +592,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: '{n}페이지: 스크린샷 실패로 건너뜀',
     aiQcStopped: '레이아웃 검사를 중지했습니다',
     aiQcCapped: '나머지 {count}페이지는 검사하지 않음(회당 상한)',
-    aiGskLoginBtn: 'Genspark 로그인',
     aiUndelivered: '전송되지 않음 — 이 메시지는 적용되지 않았습니다',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'AI 도우미 열기',
@@ -653,8 +647,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: '알 수 없는 오류',
     aiErrStreamTimeout:
       'AI 요청 시간 초과: 네트워크 응답이 없어 중단되었습니다. 연결을 확인한 후 다시 시도해 주세요',
-    aiCreditsExhausted:
-      'Genspark 크레딧을 모두 사용했습니다. genspark.ai/pricing에서 충전한 후 다시 시도해 주세요',
+    aiCreditsExhausted: '공급자가 요청을 거부했습니다 — API 키가 유효하지 않거나 할당량을 초과했을 수 있습니다. AI 설정을 확인한 후 다시 시도하세요.',
     aiErrRequestFailed: '요청 전송 실패: {msg}',
     aiErrGenerateFailed: '생성 실패',
     aiErrRegenFailed: '페이지 다시 생성 실패',
@@ -792,7 +785,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: "Page {n} : capture d'écran impossible, ignorée",
     aiQcStopped: 'Vérification de la mise en page arrêtée',
     aiQcCapped: '{count} page(s) restante(s) non vérifiée(s) (limite par exécution)',
-    aiGskLoginBtn: 'Se connecter à Genspark',
     aiUndelivered: 'Non envoyé — ce message n’a pas été pris en compte',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: "Ouvrir l'assistant IA",
@@ -850,8 +842,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Erreur inconnue',
     aiErrStreamTimeout:
       "Délai de la requête IA dépassé : aucune réponse du réseau, l'exécution a été interrompue. Vérifiez votre connexion et réessayez",
-    aiCreditsExhausted:
-      'Vos crédits Genspark sont épuisés. Rechargez sur genspark.ai/pricing puis réessayez',
+    aiCreditsExhausted: 'Le fournisseur a rejeté la requête — la clé API est peut-être invalide ou le quota est dépassé. Vérifiez les paramètres IA puis réessayez.',
     aiErrRequestFailed: "Échec de l'envoi de la requête : {msg}",
     aiErrGenerateFailed: 'Échec de la génération',
     aiErrRegenFailed: 'Échec de la régénération de la diapositive',
@@ -990,7 +981,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Seite {n}: Screenshot fehlgeschlagen, übersprungen',
     aiQcStopped: 'Layoutprüfung gestoppt',
     aiQcCapped: '{count} weitere Seite(n) nicht geprüft (Limit pro Lauf)',
-    aiGskLoginBtn: 'Bei Genspark anmelden',
     aiUndelivered: 'Nicht zugestellt — diese Nachricht wurde nicht verarbeitet',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'KI-Assistenten öffnen',
@@ -1047,8 +1037,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Unbekannter Fehler',
     aiErrStreamTimeout:
       'Zeitüberschreitung der KI-Anfrage: keine Antwort vom Netzwerk, der Vorgang wurde abgebrochen. Prüfe deine Verbindung und versuche es erneut',
-    aiCreditsExhausted:
-      'Deine Genspark-Credits sind aufgebraucht. Lade unter genspark.ai/pricing auf und versuche es erneut',
+    aiCreditsExhausted: 'Der Anbieter hat die Anfrage abgelehnt — der API-Schlüssel ist möglicherweise ungültig oder das Kontingent ist erschöpft. Prüfen Sie die KI-Einstellungen und versuchen Sie es erneut.',
     aiErrRequestFailed: 'Senden der Anfrage fehlgeschlagen: {msg}',
     aiErrGenerateFailed: 'Generierung fehlgeschlagen',
     aiErrRegenFailed: 'Neuerstellung der Folie fehlgeschlagen',
@@ -1186,7 +1175,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Página {n}: captura de pantalla fallida, omitida',
     aiQcStopped: 'Comprobación de diseño detenida',
     aiQcCapped: '{count} página(s) más sin comprobar (límite por ejecución)',
-    aiGskLoginBtn: 'Iniciar sesión en Genspark',
     aiUndelivered: 'No entregado: este mensaje no tuvo efecto',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'Abrir el asistente de IA',
@@ -1244,8 +1232,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Error desconocido',
     aiErrStreamTimeout:
       'La solicitud de IA agotó el tiempo de espera: no hubo respuesta de la red y se detuvo. Comprueba tu conexión e inténtalo de nuevo',
-    aiCreditsExhausted:
-      'Tus créditos de Genspark se han agotado. Recarga en genspark.ai/pricing e inténtalo de nuevo',
+    aiCreditsExhausted: 'El proveedor rechazó la solicitud: la clave de API puede ser inválida o la cuota agotada. Revisa los ajustes de IA e inténtalo de nuevo.',
     aiErrRequestFailed: 'No se pudo enviar la solicitud: {msg}',
     aiErrGenerateFailed: 'Error de generación',
     aiErrRegenFailed: 'No se pudo rehacer la diapositiva',
@@ -1383,7 +1370,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'หน้า {n}: จับภาพหน้าจอไม่สำเร็จ ข้ามไป',
     aiQcStopped: 'หยุดการตรวจสอบเลย์เอาต์แล้ว',
     aiQcCapped: 'อีก {count} หน้าไม่ได้ตรวจสอบ (ขีดจำกัดต่อครั้ง)',
-    aiGskLoginBtn: 'ลงชื่อเข้าใช้ Genspark',
     aiUndelivered: 'ส่งไม่สำเร็จ — ข้อความนี้ไม่มีผล',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'เปิดผู้ช่วย AI',
@@ -1437,8 +1423,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'ข้อผิดพลาดที่ไม่รู้จัก',
     aiErrStreamTimeout:
       'คำขอ AI หมดเวลา: เครือข่ายไม่ตอบสนอง จึงหยุดการทำงาน โปรดตรวจสอบการเชื่อมต่อแล้วลองใหม่',
-    aiCreditsExhausted:
-      'เครดิต Genspark ของคุณหมดแล้ว โปรดเติมเครดิตที่ genspark.ai/pricing แล้วลองใหม่',
+    aiCreditsExhausted: 'ผู้ให้บริการปฏิเสธคำขอ — คีย์ API อาจไม่ถูกต้องหรือเกินโควตา กรุณาตรวจสอบการตั้งค่า AI แล้วลองใหม่',
     aiErrRequestFailed: 'ส่งคำขอไม่สำเร็จ: {msg}',
     aiErrGenerateFailed: 'สร้างไม่สำเร็จ',
     aiErrRegenFailed: 'ทำหน้าใหม่ไม่สำเร็จ',
@@ -1576,7 +1561,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Halaman {n}: tangkapan layar gagal, dilewati',
     aiQcStopped: 'Pemeriksaan tata letak dihentikan',
     aiQcCapped: '{count} halaman lagi tidak diperiksa (batas per proses)',
-    aiGskLoginBtn: 'Masuk ke Genspark',
     aiUndelivered: 'Tidak terkirim — pesan ini tidak diproses',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'Buka asisten AI',
@@ -1633,8 +1617,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Kesalahan tidak dikenal',
     aiErrStreamTimeout:
       'Permintaan AI habis waktu: jaringan tidak merespons sehingga proses dihentikan. Periksa koneksi Anda lalu coba lagi',
-    aiCreditsExhausted:
-      'Kredit Genspark Anda telah habis. Isi ulang di genspark.ai/pricing lalu coba lagi',
+    aiCreditsExhausted: 'Penyedia menolak permintaan — kunci API mungkin tidak valid atau kuota habis. Periksa Pengaturan AI lalu coba lagi.',
     aiErrRequestFailed: 'Gagal mengirim permintaan: {msg}',
     aiErrGenerateFailed: 'Pembuatan gagal',
     aiErrRegenFailed: 'Gagal membuat ulang halaman',
@@ -1772,7 +1755,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Страница {n}: не удалось сделать снимок, пропущена',
     aiQcStopped: 'Проверка макета остановлена',
     aiQcCapped: 'Ещё {count} стр. не проверено (лимит за один запуск)',
-    aiGskLoginBtn: 'Войти в Genspark',
     aiUndelivered: 'Не доставлено — это сообщение не было обработано',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'Открыть ИИ-помощника',
@@ -1829,8 +1811,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Неизвестная ошибка',
     aiErrStreamTimeout:
       'Тайм-аут запроса ИИ: сеть не отвечает, выполнение остановлено. Проверьте подключение и повторите попытку',
-    aiCreditsExhausted:
-      'Кредиты Genspark исчерпаны. Пополните баланс на genspark.ai/pricing и повторите попытку',
+    aiCreditsExhausted: 'Провайдер отклонил запрос — возможно, ключ API недействителен или превышена квота. Проверьте настройки ИИ и повторите попытку.',
     aiErrRequestFailed: 'Не удалось отправить запрос: {msg}',
     aiErrGenerateFailed: 'Сбой генерации',
     aiErrRegenFailed: 'Не удалось переделать слайд',
@@ -1968,7 +1949,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'الصفحة {n}: تعذّر التقاط لقطة الشاشة، تم التخطي',
     aiQcStopped: 'تم إيقاف فحص التخطيط',
     aiQcCapped: '{count} صفحة أخرى لم تُفحص (حد لكل تشغيل)',
-    aiGskLoginBtn: 'تسجيل الدخول إلى Genspark',
     aiUndelivered: 'لم يتم الإرسال — لم يُعالَج هذا الطلب',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'فتح مساعد الذكاء الاصطناعي',
@@ -2022,8 +2002,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'خطأ غير معروف',
     aiErrStreamTimeout:
       'انتهت مهلة طلب الذكاء الاصطناعي: لا توجد استجابة من الشبكة وتم الإيقاف. تحقق من الاتصال وحاول مجددًا',
-    aiCreditsExhausted:
-      'نفدت أرصدة Genspark لديك. يرجى إعادة الشحن عبر genspark.ai/pricing ثم المحاولة مجددًا',
+    aiCreditsExhausted: 'رفض المزوّد الطلب — ربما يكون مفتاح API غير صالح أو تم تجاوز الحصة. تحقق من إعدادات الذكاء الاصطناعي وحاول مرة أخرى.',
     aiErrRequestFailed: 'فشل إرسال الطلب: {msg}',
     aiErrGenerateFailed: 'فشل الإنشاء',
     aiErrRegenFailed: 'فشلت إعادة إنشاء الصفحة',
@@ -2161,7 +2140,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Página {n}: captura de tela falhou, ignorada',
     aiQcStopped: 'Verificação de layout interrompida',
     aiQcCapped: 'Mais {count} página(s) não verificada(s) (limite por execução)',
-    aiGskLoginBtn: 'Entrar no Genspark',
     aiUndelivered: 'Não entregue — esta mensagem não teve efeito',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'Abrir assistente de IA',
@@ -2218,8 +2196,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Erro desconhecido',
     aiErrStreamTimeout:
       'A solicitação de IA expirou: sem resposta da rede, a execução foi interrompida. Verifique sua conexão e tente novamente',
-    aiCreditsExhausted:
-      'Seus créditos Genspark acabaram. Recarregue em genspark.ai/pricing e tente novamente',
+    aiCreditsExhausted: 'O provedor rejeitou a solicitação — a chave de API pode ser inválida ou a cota excedida. Verifique as Configurações de IA e tente novamente.',
     aiErrRequestFailed: 'Falha ao enviar a solicitação: {msg}',
     aiErrGenerateFailed: 'Falha na geração',
     aiErrRegenFailed: 'Falha ao refazer o slide',
@@ -2357,7 +2334,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Pagina {n}: screenshot non riuscito, saltata',
     aiQcStopped: 'Controllo del layout interrotto',
     aiQcCapped: 'Altre {count} pagina/e non controllate (limite per esecuzione)',
-    aiGskLoginBtn: 'Accedi a Genspark',
     aiUndelivered: 'Non recapitato — questo messaggio non ha avuto effetto',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: "Apri l'assistente IA",
@@ -2414,8 +2390,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Errore sconosciuto',
     aiErrStreamTimeout:
       'Richiesta IA scaduta: nessuna risposta dalla rete, esecuzione interrotta. Controlla la connessione e riprova',
-    aiCreditsExhausted:
-      'I tuoi crediti Genspark sono esauriti. Ricarica su genspark.ai/pricing e riprova',
+    aiCreditsExhausted: 'Il provider ha rifiutato la richiesta — la chiave API potrebbe non essere valida o la quota esaurita. Controlla le impostazioni IA e riprova.',
     aiErrRequestFailed: 'Invio della richiesta non riuscito: {msg}',
     aiErrGenerateFailed: 'Generazione non riuscita',
     aiErrRegenFailed: 'Rigenerazione della diapositiva non riuscita',
@@ -2553,7 +2528,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Strona {n}: zrzut ekranu nie powiódł się, pominięto',
     aiQcStopped: 'Sprawdzanie układu zatrzymane',
     aiQcCapped: 'Pozostałe {count} stron(y) nie sprawdzono (limit na uruchomienie)',
-    aiGskLoginBtn: 'Zaloguj się do Genspark',
     aiUndelivered: 'Niedostarczone — ta wiadomość nie została przetworzona',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'Otwórz asystenta AI',
@@ -2610,8 +2584,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Nieznany błąd',
     aiErrStreamTimeout:
       'Przekroczono limit czasu żądania AI: brak odpowiedzi sieci, przerwano. Sprawdź połączenie i spróbuj ponownie',
-    aiCreditsExhausted:
-      'Twoje kredyty Genspark wyczerpały się. Doładuj konto na genspark.ai/pricing i spróbuj ponownie',
+    aiCreditsExhausted: 'Dostawca odrzucił żądanie — klucz API może być nieprawidłowy lub limit został przekroczony. Sprawdź Ustawienia AI i spróbuj ponownie.',
     aiErrRequestFailed: 'Wysłanie żądania nie powiodło się: {msg}',
     aiErrGenerateFailed: 'Generowanie nie powiodło się',
     aiErrRegenFailed: 'Ponowne wygenerowanie slajdu nie powiodło się',
@@ -2749,7 +2722,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Pagina {n}: schermafbeelding mislukt, overgeslagen',
     aiQcStopped: 'Lay-outcontrole gestopt',
     aiQcCapped: 'Nog {count} pagina(’s) niet gecontroleerd (limiet per run)',
-    aiGskLoginBtn: 'Aanmelden bij Genspark',
     aiUndelivered: 'Niet afgeleverd — dit bericht is niet verwerkt',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'AI-assistent openen',
@@ -2807,8 +2779,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Onbekende fout',
     aiErrStreamTimeout:
       'AI-verzoek verlopen: geen reactie van het netwerk, uitvoering gestopt. Controleer je verbinding en probeer het opnieuw',
-    aiCreditsExhausted:
-      'Je Genspark-credits zijn op. Waardeer op via genspark.ai/pricing en probeer het opnieuw',
+    aiCreditsExhausted: 'De provider heeft het verzoek afgewezen — de API-sleutel is mogelijk ongeldig of het quotum is verbruikt. Controleer de AI-instellingen en probeer het opnieuw.',
     aiErrRequestFailed: 'Verzenden van verzoek mislukt: {msg}',
     aiErrGenerateFailed: 'Genereren mislukt',
     aiErrRegenFailed: 'Dia opnieuw genereren mislukt',
@@ -2946,7 +2917,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'Halaman {n}: tangkapan skrin gagal, dilangkau',
     aiQcStopped: 'Semakan susun atur dihentikan',
     aiQcCapped: '{count} halaman lagi tidak disemak (had setiap larian)',
-    aiGskLoginBtn: 'Log masuk ke Genspark',
     aiUndelivered: 'Tidak dihantar — mesej ini tidak diproses',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'Buka pembantu AI',
@@ -3003,8 +2973,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'Ralat tidak diketahui',
     aiErrStreamTimeout:
       'Permintaan AI tamat masa: rangkaian tidak memberi respons, proses dihentikan. Semak sambungan anda dan cuba lagi',
-    aiCreditsExhausted:
-      'Kredit Genspark anda telah habis. Tambah nilai di genspark.ai/pricing dan cuba lagi',
+    aiCreditsExhausted: 'Penyedia menolak permintaan — kunci API mungkin tidak sah atau kuota melebihi had. Semak Tetapan AI dan cuba lagi.',
     aiErrRequestFailed: 'Gagal menghantar permintaan: {msg}',
     aiErrGenerateFailed: 'Penjanaan gagal',
     aiErrRegenFailed: 'Gagal membuat semula slaid',
@@ -3142,7 +3111,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'עמוד {n}: צילום המסך נכשל, דולג',
     aiQcStopped: 'בדיקת הפריסה הופסקה',
     aiQcCapped: 'עוד {count} עמודים לא נבדקו (מגבלה לכל הרצה)',
-    aiGskLoginBtn: 'התחבר ל-Genspark',
     aiUndelivered: 'לא נמסר — הודעה זו לא עובדה',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'פתיחת עוזר ה-AI',
@@ -3197,7 +3165,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'שגיאה לא ידועה',
     aiErrStreamTimeout:
       'תם הזמן לבקשת ה-AI: אין תגובה מהרשת וההרצה הופסקה. בדוק את החיבור ונסה שוב',
-    aiCreditsExhausted: 'קרדיטי Genspark שלך אזלו. טען מחדש ב-genspark.ai/pricing ונסה שוב',
+    aiCreditsExhausted: 'הספק דחה את הבקשה — ייתכן שמפתח ה-API אינו תקין או שהמכסה מוצתה. בדקו את הגדרות ה-AI ונסו שוב.',
     aiErrRequestFailed: 'שליחת הבקשה נכשלה: {msg}',
     aiErrGenerateFailed: 'היצירה נכשלה',
     aiErrRegenFailed: 'יצירת השקופית מחדש נכשלה',
@@ -3335,7 +3303,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: 'पेज {n}: स्क्रीनशॉट विफल, छोड़ा गया',
     aiQcStopped: 'लेआउट जाँच रोक दी गई',
     aiQcCapped: 'शेष {count} पेज नहीं जाँचे गए (प्रति रन सीमा)',
-    aiGskLoginBtn: 'Genspark में साइन इन करें',
     aiUndelivered: 'नहीं भेजा गया — इस संदेश का कोई प्रभाव नहीं पड़ा',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: 'AI सहायक खोलें',
@@ -3391,8 +3358,7 @@ export const aiStrings = defineStrings({
     aiErrUnknown: 'अज्ञात त्रुटि',
     aiErrStreamTimeout:
       'AI अनुरोध का समय समाप्त: नेटवर्क से कोई प्रतिक्रिया नहीं मिली, इसलिए रोक दिया गया। कनेक्शन जांचें और फिर से प्रयास करें',
-    aiCreditsExhausted:
-      'आपके Genspark क्रेडिट समाप्त हो गए हैं। genspark.ai/pricing पर रिचार्ज करें और फिर से प्रयास करें',
+    aiCreditsExhausted: 'प्रदाता ने अनुरोध अस्वीकार कर दिया — API कुंजी अमान्य हो सकती है या कोटा समाप्त हो सकता है। AI सेटिंग जांचकर पुनः प्रयास करें।',
     aiErrRequestFailed: 'अनुरोध भेजने में विफल: {msg}',
     aiErrGenerateFailed: 'जनरेशन विफल',
     aiErrRegenFailed: 'स्लाइड फिर से बनाने में विफल',
@@ -3530,7 +3496,6 @@ export const aiStrings = defineStrings({
     aiQcPageSkipped: '第 {n} 頁:截圖失敗,已跳過',
     aiQcStopped: '版式檢查已停止',
     aiQcCapped: '其餘 {count} 頁未檢查(單次上限)',
-    aiGskLoginBtn: '登入 Genspark',
     aiUndelivered: '未送達,本則不會生效',
     aiPanelTitle: 'AI Assistant',
     aiOpenAssistant: '開啟 AI 助手',
@@ -3581,7 +3546,7 @@ export const aiStrings = defineStrings({
     aiErrEmptyOutput: '空輸出',
     aiErrUnknown: '未知錯誤',
     aiErrStreamTimeout: 'AI 請求逾時：網路長時間無回應，已停止。請檢查網路後重試',
-    aiCreditsExhausted: 'Genspark 點數已用完，請前往 genspark.ai/pricing 儲值後重試',
+    aiCreditsExhausted: '提供方拒絕了請求 — API 金鑰可能無效或配額已用盡。請在 AI 設定中檢查後重試。',
     aiErrRequestFailed: '要求傳送失敗: {msg}',
     aiErrGenerateFailed: '產生失敗',
     aiErrRegenFailed: '重做頁面失敗',

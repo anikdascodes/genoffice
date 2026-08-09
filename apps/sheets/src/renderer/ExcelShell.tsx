@@ -3,7 +3,7 @@ import { AiSettingsDialog } from '@genoffice/ui'
 
 import {
   CaretIcon,
-  GensparkMark,
+  IconSparkle,
   RIBBON_GLYPH_ICONS,
   RedoIcon,
   SaveIcon,
@@ -2072,7 +2072,7 @@ function Ribbon({
           onClick={onAiToggle}
         >
           <span className="tool-icon-row">
-            <GensparkMark size={26} />
+            <IconSparkle size={26} />
           </span>
           <span>
             <strong>{t('appGroupAiAssistant')}</strong>

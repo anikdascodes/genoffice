@@ -4,7 +4,7 @@ import { saveEditSelection } from '../TextEditOverlay'
 import { armColorInput } from '../color-input'
 import { displayFontFamily } from '../konva-adapter'
 import {
-  GensparkMark,
+  IconSparkle,
   IconAiBeautify,
   IconAiFactCheck,
   IconAiImage,
@@ -148,7 +148,7 @@ export function RibbonHomeTab({ rb }: { rb: RibbonTabCtx }) {
           onClick={onToggleAi}
         >
           <span className="rb-big-icon">
-            <GensparkMark size={26} />
+            <IconSparkle size={26} />
           </span>
           <span>AI Assistant</span>
         </button>

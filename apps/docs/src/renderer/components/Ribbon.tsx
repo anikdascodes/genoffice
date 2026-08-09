@@ -53,7 +53,7 @@ import {
 import { WRAP_OPTIONS } from './ContextMenu'
 import { CropDialog, CutoutDialog } from './PictureDialogs'
 import {
-  GensparkMark,
+  IconSparkle,
   IconAlignCenter,
   IconAlignJustify,
   IconAlignLeft,
@@ -1715,7 +1715,7 @@ function RibbonInner({
                   onClick={onToggleAi}
                 >
                   <span className="rb-big-icon">
-                    <GensparkMark size={26} />
+                    <IconSparkle size={26} />
                   </span>
                   <span>AI Assistant</span>
                 </button>
