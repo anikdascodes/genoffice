@@ -1,29 +1,5 @@
 import type { AiProviderId, AiProviderMeta, AiSettings, LegacyAiSettings } from './types'
 
-/**
- * Genspark server-side LLM proxy endpoints. All three protocols share the
- * api_key from the gsk login; model ids follow the proxy's own naming scheme,
- * which differs from the official vendor ids.
- */
-export const GENSPARK_LLM_BASE_URLS = {
-  anthropic: 'https://www.genspark.ai/api/anthropic',
-  gemini: 'https://www.genspark.ai/api/llm_proxy/gemini/v1beta',
-  openai: 'https://www.genspark.ai/api/llm_proxy/v1',
-} as const
-
-/**
- * Splits GenOffice usage out of the proxy's default "Claw" billing bucket
- * (the backend attributes gsk-key traffic by X-Agent-Type). Only sent to the
- * Genspark proxy — never to direct vendor APIs.
- */
-export const GENSPARK_AGENT_TYPE = 'genoffice'
-
-export function gensparkAttributionHeaders(baseUrl?: string): Record<string, string> {
-  return baseUrl?.startsWith('https://www.genspark.ai')
-    ? { 'X-Agent-Type': GENSPARK_AGENT_TYPE }
-    : {}
-}
-
 export const AI_PROVIDERS: AiProviderMeta[] = [
   {
     id: 'anthropic',
@@ -62,12 +38,15 @@ export const AI_PROVIDERS: AiProviderMeta[] = [
     defaultModel: 'gpt-4.1-mini',
     keyPlaceholder: 'sk-...',
   },
+  // Fully OpenAI-compatible endpoint: any base URL + any model id the server
+  // accepts (Ollama, OpenRouter, Groq, LM Studio, a corporate gateway, ...).
+  // No model list — the user types the id free-form.
   {
     id: 'custom',
-    label: 'Custom',
+    label: 'Custom (OpenAI-compatible)',
     models: [],
     defaultModel: '',
-    keyPlaceholder: 'API Key',
+    keyPlaceholder: 'API Key (optional for local endpoints)',
     needsBaseUrl: true,
   },
 ]
@@ -89,7 +68,9 @@ export function defaultAiSettings(
       baseUrl: meta.needsBaseUrl ? '' : undefined,
     }
   }
-  return { provider: 'anthropic', providers }
+  // Default to the fully-open custom endpoint: a fresh install should not push
+  // the user toward any particular vendor.
+  return { provider: 'custom', providers }
 }
 
 /**
@@ -112,10 +93,12 @@ export function resolveAiSettings(
     }
     return defaults
   }
-  // Genspark sign-in was removed; a stored 'genspark' selection now falls
-  // back to the default (BYOK) provider instead of hitting the gsk proxy.
+  // Legacy installs may still have provider 'genspark' on disk from the
+  // sign-in era; that proxy is gone, so fall back to the default provider.
   const provider =
-    stored.provider === 'genspark' ? defaults.provider : (stored.provider ?? defaults.provider)
+    (stored.provider as string) === 'genspark'
+      ? defaults.provider
+      : (stored.provider ?? defaults.provider)
   return {
     provider,
     providers: { ...defaults.providers, ...stored.providers },

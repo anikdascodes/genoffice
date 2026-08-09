@@ -1,6 +1,5 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 import { httpBodyDetail } from './http-error'
-import { GENSPARK_LLM_BASE_URLS, gensparkAttributionHeaders } from './providers'
 import type { AiProviderConfig, AiProviderId } from './types'
 import { createStreamWatchdog, type StreamWatchdog } from './watchdog'
 
@@ -101,47 +100,6 @@ function sseErrorText(error: unknown, fallback: string): string {
 async function jsonBodyInsteadOfSse(response: Response): Promise<string | null> {
   const contentType = response.headers.get('content-type') ?? ''
   return contentType.includes('application/json') ? await response.text() : null
-}
-
-/**
- * A non-SSE JSON reply whose text is the gateway's credits-exhausted notice
- * (Genspark: "Your Genspark credits have been exhausted…") surfaces as a typed
- * error so the apps show a localized "top up" message (errorCode 'credits')
- * instead of the English notice as a normal assistant reply.
- */
-export class AiCreditsError extends Error {
-  constructor(notice: string) {
-    super(notice)
-    this.name = 'AiCreditsError'
-  }
-}
-
-function creditsNoticeText(value: unknown): string | null {
-  if (typeof value === 'string') {
-    const t = value.toLowerCase()
-    const credits =
-      t.includes('genspark.ai/pricing') ||
-      (t.includes('credit') && (t.includes('exhausted') || t.includes('insufficient')))
-    return credits ? value : null
-  }
-  if (Array.isArray(value) || (value && typeof value === 'object')) {
-    for (const v of Object.values(value)) {
-      const hit = creditsNoticeText(v)
-      if (hit) return hit
-    }
-  }
-  return null
-}
-
-function throwIfCreditsNotice(bodyText: string): void {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(bodyText)
-  } catch {
-    return // unparseable bodies are the emit helpers' problem
-  }
-  const notice = creditsNoticeText(parsed)
-  if (notice) throw new AiCreditsError(notice)
 }
 
 /** Don't throw on parse failure (it would kill the whole stream); return error so the loop feeds it back for retry */
@@ -283,7 +241,6 @@ async function anthropicTurn(
         // browser-semantics headers; Anthropic rejects those with 403 "Request not allowed". This
         // header is the official opt-in for direct access from browser/Electron environments.
         'anthropic-dangerous-direct-browser-access': 'true',
-        ...gensparkAttributionHeaders(baseUrl),
       },
       body: JSON.stringify({
         model: config.model,
@@ -317,7 +274,6 @@ async function anthropicTurn(
   }
   const jsonBody = await jsonBodyInsteadOfSse(response)
   if (jsonBody !== null) {
-    throwIfCreditsNotice(jsonBody)
     return emitAnthropicJsonMessage(jsonBody, cb)
   }
   // tool_use inputs stream as partial JSON per content block
@@ -512,7 +468,6 @@ async function geminiTurn(
     headers: {
       'Content-Type': 'application/json',
       'x-goog-api-key': config.apiKey,
-      ...gensparkAttributionHeaders(baseUrl),
     },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
@@ -540,7 +495,6 @@ async function geminiTurn(
   }
   const jsonBody = await jsonBodyInsteadOfSse(response)
   if (jsonBody !== null) {
-    throwIfCreditsNotice(jsonBody)
     return emitGeminiJsonMessage(jsonBody, cb)
   }
   let stopReason: string | undefined
@@ -725,7 +679,6 @@ async function openAiCompatibleTurn(
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${config.apiKey}`,
-      ...gensparkAttributionHeaders(baseUrl),
     },
     body: JSON.stringify({
       model: config.model,
@@ -750,7 +703,6 @@ async function openAiCompatibleTurn(
   }
   const jsonBody = await jsonBodyInsteadOfSse(response)
   if (jsonBody !== null) {
-    throwIfCreditsNotice(jsonBody)
     return emitOpenAiJsonMessage(jsonBody, cb)
   }
   // tool call arguments stream in fragments keyed by index
@@ -853,40 +805,6 @@ export async function streamForProvider(
   cb: StreamCallbacks,
 ): Promise<void> {
   switch (provider) {
-    case 'genspark':
-      // The proxy exposes three protocol-specific endpoints; route by model id prefix: claude uses
-      // the Anthropic protocol (preserves image input fidelity), gemini uses Gemini, rest OpenAI-compatible
-      if (config.model.startsWith('claude')) {
-        return streamAnthropic(
-          config,
-          system,
-          messages,
-          tools,
-          maxTokens,
-          cb,
-          GENSPARK_LLM_BASE_URLS.anthropic,
-        )
-      }
-      if (config.model.startsWith('gemini')) {
-        return streamGemini(
-          config,
-          system,
-          messages,
-          tools,
-          maxTokens,
-          cb,
-          GENSPARK_LLM_BASE_URLS.gemini,
-        )
-      }
-      return streamOpenAiCompatible(
-        GENSPARK_LLM_BASE_URLS.openai,
-        config,
-        system,
-        messages,
-        tools,
-        maxTokens,
-        cb,
-      )
     case 'anthropic':
       return streamAnthropic(config, system, messages, tools, maxTokens, cb)
     case 'gemini':

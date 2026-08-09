@@ -1,12 +1,12 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 
-export type AiProviderId = 'genspark' | 'anthropic' | 'gemini' | 'deepseek' | 'openai' | 'custom'
-
-/** Genspark account status (gsk login state; the sole auth source for AI features) */
-export interface GenSparkAccountStatus {
-  loggedIn: boolean
-  email?: string
-}
+/**
+ * AI is bring-your-own-key: a preset provider (Anthropic / Gemini / DeepSeek /
+ * OpenAI) or a free-form OpenAI-compatible endpoint (`custom`) whose model id /
+ * base URL are user-supplied — Ollama, OpenRouter, Groq, LM Studio and similar
+ * all work through `custom`.
+ */
+export type AiProviderId = 'anthropic' | 'gemini' | 'deepseek' | 'openai' | 'custom'
 
 export interface AiProviderConfig {
   apiKey: string
@@ -65,8 +65,8 @@ export interface AiStreamChunk {
   /** complete parsed tool call (emitted once its arguments finish streaming) */
   toolCall?: AgentToolCall
   error?: string
-  /** machine-readable error cause ('timeout', exhausted 'credits'); lets the renderer localize the message */
-  errorCode?: 'timeout' | 'credits'
+    /** machine-readable error cause (currently only 'timeout'); lets the renderer localize the message */
+  errorCode?: 'timeout'
   /** normalized stop reason carried on 'done' ('max_tokens' = output cut off by the token limit) */
   stopReason?: string
 }

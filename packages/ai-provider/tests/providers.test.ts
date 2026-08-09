@@ -4,7 +4,7 @@ import { AI_PROVIDERS, defaultAiSettings, resolveAiSettings } from '../src/provi
 describe('defaultAiSettings', () => {
   it('gives every provider its default model and an empty key by default', () => {
     const settings = defaultAiSettings()
-    expect(settings.provider).toBe('anthropic')
+    expect(settings.provider).toBe('custom')
     for (const meta of AI_PROVIDERS) {
       expect(settings.providers[meta.id].apiKey).toBe('')
       expect(settings.providers[meta.id].model).toBe(meta.defaultModel)
@@ -65,7 +65,7 @@ describe('resolveAiSettings', () => {
 
   it('remaps a stored genspark selection to the default BYOK provider', () => {
     const defaults = defaultAiSettings()
-    const resolved = resolveAiSettings({ provider: 'genspark', providers: {} as never }, defaults)
-    expect(resolved.provider).toBe('anthropic')
+    const resolved = resolveAiSettings({ provider: 'genspark', providers: {} } as never, defaults)
+    expect(resolved.provider).toBe('custom')
   })
 })
