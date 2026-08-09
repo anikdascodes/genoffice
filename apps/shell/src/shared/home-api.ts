@@ -94,16 +94,6 @@ export interface HomeApi {
   getUpdateChannel(): Promise<UpdateChannel>
   /** switch + persist the update channel; triggers an immediate update check */
   setUpdateChannel(channel: UpdateChannel): Promise<void>
-  /** Genspark account status (gsk login state; to be upgraded to a signup/account system later) */
-  accountStatus(): Promise<AccountStatus>
-  /** start Genspark login (opens the browser; accountStatus flips to logged-in on completion); returns whether the launch succeeded */
-  accountLogin(): Promise<boolean>
-  /** progress events for the login started via accountLogin; returns an unsubscribe */
-  onAccountLogin(handler: (ev: AccountLoginEvent) => void): () => void
-  /** re-open the pending login auth URL in the default browser (rescue when auto-open failed) */
-  openLoginUrl(): Promise<void>
-  /** log out (clears the saved API key; the login state is shared globally with the gsk CLI) */
-  accountLogout(): Promise<void>
   /** current AI provider settings (bring-your-own-key); stored in the shared userData ai-settings.json */
   getAiSettings(): Promise<AiSettings>
   /** persist AI provider settings */
@@ -116,21 +106,6 @@ export interface HomeApi {
   setOnboardingSeen(): Promise<void>
   /** open the GenTeam community page in the default browser */
   openGenTeam(): Promise<void>
-}
-
-export interface AccountStatus {
-  /** gsk is installed and logged in */
-  loggedIn: boolean
-  email?: string
-}
-
-/** login flow progress pushed from main (gsk login CLI output) */
-export interface AccountLoginEvent {
-  phase: 'launched' | 'url' | 'success' | 'error'
-  url?: string
-  expiresInSec?: number
-  /** 'network' | 'expired' | raw CLI error text */
-  error?: string
 }
 
 export interface RenameResult {
@@ -199,11 +174,6 @@ export const HOME_CHANNELS = {
   setLanguage: 'home:set-language',
   getUpdateChannel: 'home:get-update-channel',
   setUpdateChannel: 'home:set-update-channel',
-  accountStatus: 'home:account-status',
-  accountLogin: 'home:account-login',
-  accountLoginEvent: 'home:account-login-event',
-  accountLoginOpenUrl: 'home:account-login-open-url',
-  accountLogout: 'home:account-logout',
   aiGetSettings: 'ai:get-settings',
   aiSetSettings: 'ai:set-settings',
   getAppVersion: 'home:get-app-version',

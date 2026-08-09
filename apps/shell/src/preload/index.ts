@@ -2,8 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { AiSettings } from '@genoffice/ai-provider'
 import type {
-  AccountLoginEvent,
-  AccountStatus,
   HomeApi,
   RecentEntry,
   RecentPage,
@@ -124,25 +122,6 @@ const homeApi: HomeApi = {
     // silently disappear). Preload entries must stay single-file bundles.
     if (channel !== 'stable' && channel !== 'beta') throw new Error('Invalid update channel.')
     await ipcRenderer.invoke(HOME_CHANNELS.setUpdateChannel, channel)
-  },
-  async accountStatus() {
-    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.accountStatus)
-    return (result ?? { loggedIn: false }) as AccountStatus
-  },
-  async accountLogin() {
-    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.accountLogin)
-    return result === true
-  },
-  onAccountLogin(handler) {
-    const listener = (_event: IpcRendererEvent, ev: AccountLoginEvent) => handler(ev)
-    ipcRenderer.on(HOME_CHANNELS.accountLoginEvent, listener)
-    return () => ipcRenderer.removeListener(HOME_CHANNELS.accountLoginEvent, listener)
-  },
-  async openLoginUrl() {
-    await ipcRenderer.invoke(HOME_CHANNELS.accountLoginOpenUrl)
-  },
-  async accountLogout() {
-    await ipcRenderer.invoke(HOME_CHANNELS.accountLogout)
   },
   async getAiSettings() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.aiGetSettings)

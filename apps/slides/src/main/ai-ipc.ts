@@ -8,7 +8,6 @@ import { app, ipcMain } from 'electron'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
-  AiCreditsError,
   AiTimeoutError,
   defaultAiSettings,
   resolveAiSettings,
@@ -16,19 +15,10 @@ import {
   type AiSettings,
   type AiStreamChunk,
   type AiStreamRequest,
-  type GenSparkAccountStatus,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 import { fetchRemoteImage } from '@genoffice/electron-utils'
-import {
-  webSearch,
-  imageSearch,
-  gskApiKey,
-  gskGenerateImage,
-  gskAnalyzeMedia,
-  gskLoginInfo,
-  hasGskAuth,
-} from '@genoffice/ai-search'
+import { webSearch, imageSearch } from '@genoffice/ai-search'
 import { addPicture } from '@genoffice/pptx-engine'
 import { EMU_PER_PX_96 } from '@genoffice/pptx-render'
 import { tm } from './i18n-main'
@@ -61,22 +51,6 @@ export function registerAiIpc(): void {
     return settings
   })
 
-  // Genspark account (gsk login state): the auth source for AI features; when logged out the frontend uses this to guide login
-  ipcMain.handle(
-    'ai:gsk-status',
-    async (_event, withEmail?: boolean): Promise<GenSparkAccountStatus> => {
-      if (!hasGskAuth()) return { loggedIn: false }
-      if (!withEmail) return { loggedIn: true }
-      const info = await gskLoginInfo()
-      return info?.email ? { loggedIn: true, email: info.email } : { loggedIn: true }
-    },
-  )
-
-  ipcMain.handle('ai:gsk-login', () => {
-    // Genspark sign-in removed — AI is bring-your-own-key only
-    return false
-  })
-
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
     writeJson(AI_SETTINGS_PATH(), settings)
   })
@@ -86,11 +60,7 @@ export function registerAiIpc(): void {
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? 8192
     const provider = settings.provider
-    let config = settings.providers?.[provider]
-    // The genspark key never enters the settings file; it is fetched from the gsk login state per request
-    if (provider === 'genspark' && config && !config.apiKey) {
-      config = { ...config, apiKey: gskApiKey() }
-    }
+    const config = settings.providers?.[provider]
     const send = (chunk: AiStreamChunk) => {
       if (!event.sender.isDestroyed()) event.sender.send('ai:stream-chunk', chunk)
     }
@@ -98,7 +68,7 @@ export function registerAiIpc(): void {
       send({
         requestId,
         type: 'error',
-        error: provider === 'genspark' ? tm('errGskNotLoggedIn') : tm('errNoApiKey', { provider }),
+        error: tm('errNoApiKey', { provider }),
       })
       return
     }
@@ -134,11 +104,7 @@ export function registerAiIpc(): void {
           requestId,
           type: 'error',
           error: msg,
-          ...(err instanceof AiTimeoutError
-            ? { errorCode: 'timeout' as const }
-            : err instanceof AiCreditsError
-              ? { errorCode: 'credits' as const }
-              : {}),
+          ...(err instanceof AiTimeoutError ? { errorCode: 'timeout' as const } : {}),
         })
       }
     } finally {
@@ -174,52 +140,12 @@ export function registerAiIpc(): void {
 // never called; docs does not have these channels, so putting them in the wrong place raises
 // "No handler registered".
 export function registerSlidesOnlyAiIpc(): void {
-  // gsk (Genspark CLI) capabilities: AI image generation / media analysis. Returns an error prompt when not logged in.
-  ipcMain.handle(
-    'ai:generate-image',
-    async (
-      _event,
-      op: {
-        prompt: string
-        model?: string
-        referenceImageUrls?: string[]
-        aspectRatio?: string
-        imageSize?: string
-      },
-    ) => {
-      if (!hasGskAuth()) return { error: tm('errGskCli') }
-      try {
-        const r = await gskGenerateImage({
-          prompt: String(op.prompt),
-          model: op.model ? String(op.model) : undefined,
-          referenceImageUrls: Array.isArray(op.referenceImageUrls)
-            ? op.referenceImageUrls.map(String)
-            : undefined,
-          aspectRatio: op.aspectRatio ? String(op.aspectRatio) : undefined,
-          imageSize: op.imageSize ? String(op.imageSize) : undefined,
-        })
-        return { url: r.url }
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  )
+  // AI image generation / media analysis were hosted Genspark services with no
+  // open BYOAK equivalent; the channels stay as clean stubs so the renderer's
+  // tool-call surface reports them as unavailable instead of failing to wire.
+  ipcMain.handle('ai:generate-image', async () => ({ error: tm('errNoHostedImageGen') }))
 
-  ipcMain.handle(
-    'ai:analyze-media',
-    async (_event, op: { mediaUrls: string[]; requirements: string }) => {
-      if (!hasGskAuth()) return { error: tm('errGskCli') }
-      try {
-        const text = await gskAnalyzeMedia({
-          mediaUrls: (op.mediaUrls ?? []).map(String),
-          requirements: String(op.requirements ?? ''),
-        })
-        return { text }
-      } catch (err) {
-        return { error: err instanceof Error ? err.message : String(err) }
-      }
-    },
-  )
+  ipcMain.handle('ai:analyze-media', async () => ({ error: tm('errNoHostedMediaAnalysis') }))
 
   // Download an image from a URL and insert it into the given page (image search -> insert in one step; download in the main process avoids CORS)
   ipcMain.handle(
