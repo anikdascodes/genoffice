@@ -12,7 +12,7 @@ interface FakeSettings {
 
 function setup(
   startImpl?: (request: IpcStreamStart<FakeSettings>) => void | Promise<unknown>,
-  creditsErrorText?: () => string,
+  _creditsErrorText?: () => string,
 ) {
   let listener: ((chunk: IpcStreamChunk) => void) | undefined
   const unsubscribe = vi.fn(() => {
@@ -30,10 +30,10 @@ function setup(
       return startImpl?.(request)
     },
     cancel: (requestId) => cancelled.push(requestId),
-    getSettings: () => ({ provider: 'genspark' }),
+    getSettings: () => ({ provider: 'custom' }),
     unknownErrorText: () => 'unknown error',
     timeoutErrorText: () => 'timed out',
-    ...(creditsErrorText ? { creditsErrorText } : {}),
+    ...(_creditsErrorText ? { creditsErrorText: _creditsErrorText } : {}),
   })
   const cb = {
     onDelta: vi.fn(),
@@ -52,7 +52,7 @@ describe('createIpcTransport', () => {
   it('starts one request with settings and forwards deltas and tool calls', () => {
     const { started, cb, emit } = setup()
     expect(started).toHaveLength(1)
-    expect(started[0]!.settings).toEqual({ provider: 'genspark' })
+    expect(started[0]!.settings).toEqual({ provider: 'custom' })
     expect(started[0]!.system).toBe('sys')
 
     emit({ type: 'delta', text: 'hi' })

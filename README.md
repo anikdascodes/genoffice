@@ -1,43 +1,63 @@
-# GenOffice
+# GenOffice (open fork)
 
 An AI-native office suite for macOS and Windows: word processor, spreadsheet,
-presentations, and PDF — five Electron apps sharing one engine layer, built
+presentations, and PDF — four Electron editors sharing one engine layer, built
 around AI editing as a first-class workflow rather than a bolted-on chat box.
 
-[![Meet GenOffice — the world's first full-featured open-source AI Office (video)](https://img.youtube.com/vi/B2pLdMX95v4/maxresdefault.jpg)](https://www.youtube.com/watch?v=B2pLdMX95v4)
+> This repository is a **fork of [genspark-ai/genoffice](https://github.com/genspark-ai/genoffice)**.
+> The upstream project is source-available yet routes AI through a hosted,
+> sign-in-based service. This fork strips that out: **no account, no sign-in,
+> no cloud dependency — you bring your own AI keys, and your files never leave
+> your device.**
 
-[Watch the demo video on YouTube](https://www.youtube.com/watch?v=B2pLdMX95v4)
+## Why this fork
 
-## Download
+- **No sign-in, ever.** All account/login flows were removed. There is nothing
+  to sign up for and no hosted service to authenticate against.
+- **Your files stay on your device.** Documents are opened, edited, and saved
+  locally. Content is only ever sent to the model provider **you** configured,
+  as a prompt — never stored, never uploaded to a file service.
+- **No barrier to using any model.** Bring your own API key (BYOK) and use
+  Anthropic, Gemini, DeepSeek, OpenAI — or **any** OpenAI-compatible endpoint
+  (Ollama, OpenRouter, Groq, LM Studio, local servers, …). Protocol, base URL,
+  and model id are freely configurable; nothing is locked to one vendor.
+- **Fully open source.** All app and engine code is Apache-2.0; you can build,
+  audit, and modify everything yourself.
 
-Signed installers built from `main`:
+## Features
 
-- **macOS** (Apple Silicon): [GenOffice-0.5.83-arm64.dmg](https://github.com/genspark-ai/genoffice/releases/download/v0.5.83/GenOffice-0.5.83-arm64.dmg)
-- **Windows** (x64): [GenOfficeSetup-v0.5.79.exe](https://github.com/genspark-ai/genoffice/releases/download/v0.5.83/GenOfficeSetup-v0.5.79.exe)
-
-Previous version:
-
-- **macOS** (Apple Silicon): [GenOffice-0.5.1-arm64.dmg](https://github.com/genspark-ai/genoffice/releases/download/v0.5.1/GenOffice-0.5.1-arm64.dmg)
-- **Windows** (x64): [GenOfficeSetup-v0.5.1.exe](https://github.com/genspark-ai/genoffice/releases/download/v0.5.1/GenOfficeSetup-v0.5.1.exe)
-
-Other versions are on the [Releases](https://github.com/genspark-ai/genoffice/releases) page.
-
-## Apps
-
-| App           | Product              | What it is                                                                                                                                                                                                                                                                                                                                                    |
-| ------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/docs`   | **GenOffice Docs**   | `.docx` word processor. Byte-preserving round trip: only dirty paragraphs are regenerated (paragraph patch), everything else in the original file is kept byte-for-byte, so opening and saving never breaks layout in Word. Paginated view whose line metrics reproduce the original document's layout, tracked changes, comments, styles, equations, ink.    |
-| `apps/sheets` | **GenOffice Sheets** | `.xlsx` spreadsheet. UI built on the open-source [Univer](https://github.com/dream-num/univer) core (Apache-2.0) with a large layer of in-house extensions; `.xlsx` import/export runs through an in-house Rust sidecar (calamine + IronCalc), charts are rendered in-house (Konva), plus pivot tables, slicers, conditional formatting, and formula tracing. |
-| `apps/slides` | **GenOffice Slides** | `.pptx` presentations. In-house `.pptx` parse/render/edit engine with masters, charts, cropping, ink, and text shaping (HarfBuzz metrics).                                                                                                                                                                                                                    |
-| `apps/pdf`    | **GenOffice PDF**    | `.pdf` viewer/editor on pdf.js + pdf-lib: annotations, forms, outlines, stamps, signatures, page operations, and printing support.                                                                                                                                                                                                                            |
-| `apps/shell`  | **GenOffice**        | The suite shell: home screen, tabbed hosting of the four editors, auto-update.                                                                                                                                                                                                                                                                                |
+- **GenOffice Docs (`.docx`)** — byte-preserving round trip: only dirty
+  paragraphs are regenerated, everything else keeps its original bytes, so
+  layout never breaks in Word. Paginated view, tracked changes, comments,
+  styles, equations, ink.
+- **GenOffice Sheets (`.xlsx`)** — built on the open-source
+  [Univer](https://github.com/dream-num/univer) core (Apache-2.0) with a large
+  layer of in-house extensions; in-house Rust import/export sidecar
+  (calamine + IronCalc), in-house chart rendering (Konva), pivot tables,
+  slicers, conditional formatting, formula tracing.
+- **GenOffice Slides (`.pptx`)** — in-house parse/render/edit engine with
+  masters, charts, cropping, ink, and HarfBuzz text shaping.
+- **GenOffice PDF (`.pdf`)** — viewer/editor on pdf.js + pdf-lib: annotations,
+  forms, outlines, stamps, signatures, page operations, printing.
+- **GenOffice Shell** — the suite shell: home screen, tabbed hosting of the
+  four editors, auto-update.
 
 Every app embeds the same AI panel: block-granular AI editing with version
-snapshots and diffs in docs, a tool-calling agent over workbook/slide/PDF
+snapshots and diffs in docs, and a tool-calling agent over workbook/slide/PDF
 state in the others.
 
-**AI providers.** The apps sign in to a Genspark account and route model
-calls through the Genspark service side; no model API key is stored locally.
+## AI: bring your own key
+
+No API keys are bundled, and no model is locked in. Configure once in
+Settings:
+
+- **Providers:** `anthropic` · `gemini` · `deepseek` · `openai` · `custom`
+- **Custom provider:** any OpenAI-compatible base URL + free-text model id —
+  covers Ollama, OpenRouter, Groq, LM Studio, vLLM, and local servers.
+  The key field is optional for local endpoints that need none.
+
+Stored keys stay in your app's local user-data settings. There is no routing
+through any third-party service.
 
 ## Engine packages
 
@@ -52,8 +72,9 @@ All pure TypeScript, no Electron dependency, unit-tested (except the UI kit):
 - `packages/agent-core` — the AI agent loop and skill composition shared by
   every app.
 - `packages/ai-provider` — provider abstraction and streaming for the model
-  backends.
-- `packages/ai-search` — Genspark auth + web/image search tools.
+  backends (Anthropic, Gemini, DeepSeek, OpenAI, OpenAI-compatible custom).
+- `packages/ai-search` — web/image search tools for the agent (Serper +
+  DuckDuckGo; no auth service).
 - `packages/i18n`, `packages/ui`, `packages/project-store`,
   `packages/electron-utils` — shared i18n core, React UI kit, recent-files
   store, and Electron main-process helpers.
@@ -116,3 +137,8 @@ is covered by the [GenOffice Enterprise License](ee/LICENSE).
 The GenOffice and Genspark names and logos are trademarks of Mainfunc, Inc.
 The Apache-2.0 license does not grant permission to use them (see section 6);
 forks should use their own branding.
+
+---
+
+*This is an independent fork. It is not affiliated with, endorsed by, or
+sponsored by Mainfunc, Inc. or Genspark.*
