@@ -27,6 +27,8 @@ export type {
   AiStreamRequest,
 } from '@genoffice/ai-provider'
 export { AI_PROVIDERS } from '@genoffice/ai-provider'
+
+export type UiTheme = 'light' | 'dark' | 'system'
 export type { AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 
 export interface OpenResult {
@@ -580,6 +582,14 @@ export interface GetLayoutsResult {
       hint: string
     }>
   }>
+  /** Slide size (EMU), for normalizing the placeholder previews */
+  size: { cx: number; cy: number }
+}
+
+/** Slide document page size (EMU), for header/footer and ribbon-shared layout previews. */
+export interface GetSlideSizeResult {
+  cx: number
+  cy: number
 }
 
 /** Element z-order adjustment (elements order = spTree order). */
@@ -650,6 +660,11 @@ export interface EditPictureSrcRectOp {
   sourceId: string
   /** Crop ratio per edge 0..1; null = remove the crop (full image) */
   srcRect: { l: number; t: number; r: number; b: number } | null
+  /** Crop confirm also shrinks the element frame to the on-screen crop frame; applied
+   * in the same undo step so one undo restores both frame and crop. Px relative to
+   * the fitWidthPx viewport (rotation is left unchanged). Requires fitWidthPx. */
+  boxPx?: { x: number; y: number; w: number; h: number }
+  fitWidthPx?: number
 }
 
 /** Group elements: merge ≥2 editable elements into one group. */
@@ -793,6 +808,17 @@ export interface AddImageBytesOp {
   hPx: number
   fitWidthPx: number
   name?: string
+}
+
+/** Swap a picture's backing image in place: frame, z-order, border and effects survive. */
+export interface ReplacePictureBytesOp {
+  slideIndex: number
+  sourceId: string
+  /** base64 without the data: prefix */
+  base64: string
+  ext: string
+  /** Keep the crop window — only valid when the new image shares the old one's pixel geometry (e.g. background removal) */
+  keepSrcRect?: boolean
 }
 
 /** Insert renderer-recorded media bytes (screen-recording webm etc.). */
@@ -1372,6 +1398,19 @@ export interface SlidesApi {
   presenterInk: (ev: ShowInkEvent) => void
   /** Swap the displays of the presenter/audience windows; returns false with no audience window or same screen */
   presenterSwap: () => Promise<boolean>
+  /** current UI theme (persisted by the shell in app-settings.json) */
+  getTheme: () => Promise<UiTheme>
+  /** theme switched from the shell home page */
+  onThemeChanged: (handler: (theme: UiTheme) => void) => () => void
+  /** Swap a picture's backing image in place: frame/z-order/effects survive. */
+  replacePictureBytes: (op: ReplacePictureBytesOp) => Promise<RenderSlide | null>
+  /** Download a URL and swap it into an existing picture in place (frame/z-order/effects survive) */
+  replacePictureUrl: (op: {
+    slideIndex: number
+    sourceId: string
+    url: string
+    keepSrcRect?: boolean
+  }) => Promise<RenderSlide | null>
   /** Exit presenter view: close the audience window */
   presenterEnd: () => Promise<void>
   /** Audience window: fetch the presenter's most recent sync state (re-sent when mounting after the broadcast) */

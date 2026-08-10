@@ -31,6 +31,8 @@ import {
   installContextMenu,
   installNavigationGuard,
   safeExternalUrl,
+  showOpenDialogWithMemory,
+  showSaveDialogWithMemory,
 } from '@genoffice/electron-utils'
 import { getUiLang, normalizeLang, setUiLang } from '@genoffice/i18n'
 import { ProjectStore } from '@genoffice/project-store'
@@ -104,6 +106,7 @@ import {
   pasteElements,
   reorderElement,
   reparseDeck,
+  replacePictureBytes,
   savePptx,
   savePptxToFile,
   commitSaved,
@@ -112,6 +115,10 @@ import {
   mergeTableCells,
   setSlideLayout,
   resetSlideLayout,
+  builtinLayoutInfos,
+  ensureBuiltinLayout,
+  shouldOfferBuiltinLayouts,
+  BUILTIN_LAYOUT_PREFIX,
   setSlideSize,
   setPictureOpacity,
   setElementConnection,
@@ -153,6 +160,7 @@ import type {
   AddElementOp,
   AddImageBytesOp,
   AddInkOp,
+  ReplacePictureBytesOp,
   AddMediaBytesOp,
   AddBlankSlideOp,
   AddSlideOp,
@@ -953,9 +961,7 @@ export function registerSlidesIpc(): void {
       properties: ['openFile' as const],
       filters: [{ name: 'PowerPoint', extensions: ['pptx', 'ppt'] }],
     }
-    const r = parent
-      ? await dialog.showOpenDialog(parent, options)
-      : await dialog.showOpenDialog(options)
+    const r = await showOpenDialogWithMemory(dialog, parent, options)
     if (r.canceled || !r.filePaths[0]) return null
     if (await rejectLegacyPpt(r.filePaths[0])) return null
     return openAndBuild(e.sender, r.filePaths[0], fitWidthPx)
@@ -1608,7 +1614,11 @@ export function registerSlidesIpc(): void {
       }
       return rebuildSlide(session, op.slideIndex)
     }
-    const el = findEl(slide, op.sourceId)
+    // Unlike findEl, pictures are strokable too (picture border)
+    const el = slide.elements.find(
+      (x) =>
+        x.id === op.sourceId && (x.type === 'text' || x.type === 'shape' || x.type === 'picture'),
+    ) as TextElement | undefined
     if (!el) return null
     pushHistory(session)
     el.stroke = op.stroke
@@ -1655,6 +1665,27 @@ export function registerSlidesIpc(): void {
     if (!editPictureSrcRect(slide, op.sourceId, op.srcRect)) {
       session.undoStack.pop()
       return null
+    }
+    // Crop confirm also shrinks the element frame to the crop frame — same history
+    // push, so a single undo restores frame and crop together (no distorted middle state)
+    if (op.boxPx && op.fitWidthPx) {
+      const el = slide.elements.find((x) => x.id === op.sourceId)
+      if (el) {
+        const baseWidthPx = session.opened.deck.size.cx / EMU_PER_PX_96
+        const scale = op.fitWidthPx / baseWidthPx
+        const toEmu = (px: number) => Math.round((px / scale) * EMU_PER_PX_96)
+        el.transform = {
+          ...el.transform,
+          offset: {
+            x: toEmu(op.boxPx.x),
+            y: toEmu(op.boxPx.y),
+            cx: toEmu(op.boxPx.w),
+            cy: toEmu(op.boxPx.h),
+          },
+        }
+        el.dirtyTransform = true
+        updateConnectorsForMoved(slide, [op.sourceId])
+      }
     }
     return rebuildSlide(session, op.slideIndex)
   })
@@ -1742,9 +1773,7 @@ export function registerSlidesIpc(): void {
           },
         ],
       }
-      const r = parent
-        ? await dialog.showOpenDialog(parent, options)
-        : await dialog.showOpenDialog(options)
+      const r = await showOpenDialogWithMemory(dialog, parent, options)
       if (r.canceled || !r.filePaths[0]) return null
       const bytes = await readFile(r.filePaths[0])
       const ext = r.filePaths[0].split('.').pop()!.toLowerCase()
@@ -1773,9 +1802,7 @@ export function registerSlidesIpc(): void {
         },
       ],
     }
-    const r = parent
-      ? await dialog.showOpenDialog(parent, options)
-      : await dialog.showOpenDialog(options)
+    const r = await showOpenDialogWithMemory(dialog, parent, options)
     if (r.canceled || !r.filePaths[0]) return null
     const filePath = r.filePaths[0]
     const bytes = await readFile(filePath)
@@ -1981,11 +2008,26 @@ export function registerSlidesIpc(): void {
     }
   })
 
+  // 'builtin:<key>' virtual paths get injected into the package on first use
+  const resolveLayoutPath = (session: Session, layoutPath?: string): string | undefined => {
+    if (!layoutPath?.startsWith(BUILTIN_LAYOUT_PREFIX)) return layoutPath
+    return (
+      ensureBuiltinLayout(
+        session.opened.archive,
+        session.opened.deck.size,
+        layoutPath.slice(BUILTIN_LAYOUT_PREFIX.length),
+      ) ?? undefined
+    )
+  }
+
   ipcMain.handle('slides:add-slide-with-layout', (e, op: AddSlideWithLayoutOp) => {
     const session = sessions.get(e.sender.id)
     if (!session) return null
     pushHistory(session)
-    const slide = insertSlideWithLayout(session.opened, op.sourceIndex, op.layoutPath)
+    const layoutPath = resolveLayoutPath(session, op.layoutPath)
+    const slide = layoutPath
+      ? insertSlideWithLayout(session.opened, op.sourceIndex, layoutPath)
+      : null
     if (!slide) {
       session.undoStack.pop()
       return null
@@ -2001,7 +2043,14 @@ export function registerSlidesIpc(): void {
     const session = sessions.get(e.sender.id)
     if (!session) return null
     const layouts = listSlideLayouts(session.opened.archive)
-    return { layouts }
+    // Decks whose own layouts carry no placeholders (AI-generated single blank layout)
+    // get the built-in standard set, injected into the package on first use
+    if (shouldOfferBuiltinLayouts(layouts)) {
+      layouts.push(
+        ...builtinLayoutInfos(session.opened.deck.size, new Set(layouts.map((l) => l.name))),
+      )
+    }
+    return { layouts, size: { ...session.opened.deck.size } }
   })
 
   // ── Master edit view ───────────────────────────────────────────────
@@ -2199,9 +2248,12 @@ export function registerSlidesIpc(): void {
     const session = sessions.get(e.sender.id)
     if (!session) return null
     pushHistory(session)
-    const r = op.layoutPath
-      ? setSlideLayout(session.opened, op.slideIndex, op.layoutPath)
-      : resetSlideLayout(session.opened, op.slideIndex)
+    const layoutPath = resolveLayoutPath(session, op.layoutPath)
+    const r = layoutPath
+      ? setSlideLayout(session.opened, op.slideIndex, layoutPath)
+      : op.layoutPath
+        ? null
+        : resetSlideLayout(session.opened, op.slideIndex)
     if (!r) {
       session.undoStack.pop()
       return null
@@ -2700,6 +2752,27 @@ export function registerSlidesIpc(): void {
     return rebuilt ? { slide: rebuilt, sourceId: el.id } : null
   })
 
+  ipcMain.handle('slides:replace-picture-bytes', (e, op: ReplacePictureBytesOp) => {
+    const session = sessions.get(e.sender.id)
+    if (!session) return null
+    const slide = session.opened.deck.slides[op.slideIndex]
+    if (!slide) return null
+    pushHistory(session)
+    const ok = replacePictureBytes(
+      session.opened,
+      slide,
+      op.sourceId,
+      new Uint8Array(Buffer.from(op.base64, 'base64')),
+      op.ext,
+      op.keepSrcRect ? { keepSrcRect: true } : undefined,
+    )
+    if (!ok) {
+      session.undoStack.pop()
+      return { error: 'unsupported' as const, ext: op.ext }
+    }
+    return rebuildSlide(session, op.slideIndex)
+  })
+
   // Show a dialog to pick video/audio and embed it. Video poster frame prefers the system thumbnail (QuickLook), falling back to a solid color on failure.
   ipcMain.handle(
     'slides:insert-media',
@@ -2716,9 +2789,7 @@ export function registerSlidesIpc(): void {
         properties: ['openFile' as const],
         filters,
       }
-      const r = parent
-        ? await dialog.showOpenDialog(parent, options)
-        : await dialog.showOpenDialog(options)
+      const r = await showOpenDialogWithMemory(dialog, parent, options)
       if (r.canceled || !r.filePaths[0]) return null
       const filePath = r.filePaths[0]
       const bytes = await readFile(filePath)
@@ -2877,9 +2948,7 @@ export function registerSlidesIpc(): void {
       properties: ['openFile' as const],
       filters: [{ name: tm('filter3d'), extensions: ['glb', 'gltf'] }],
     }
-    const r = parent
-      ? await dialog.showOpenDialog(parent, options)
-      : await dialog.showOpenDialog(options)
+    const r = await showOpenDialogWithMemory(dialog, parent, options)
     if (r.canceled || !r.filePaths[0]) return null
     const filePath = r.filePaths[0]
     const bytes = await readFile(filePath)
@@ -3377,9 +3446,7 @@ export function registerSlidesIpc(): void {
       defaultPath: defaultName,
       filters: [{ name: 'PowerPoint', extensions: ['pptx'] }],
     }
-    const r = parent
-      ? await dialog.showSaveDialog(parent, options)
-      : await dialog.showSaveDialog(options)
+    const r = await showSaveDialogWithMemory(dialog, parent, options)
     if (r.canceled || !r.filePath) return { ok: false }
     try {
       await savePptxToFile(session.opened, r.filePath)
@@ -3409,9 +3476,7 @@ export function registerSlidesIpc(): void {
       buttonLabel: tm('btnExport'),
       properties: ['openDirectory' as const, 'createDirectory' as const],
     }
-    const r = parent
-      ? await dialog.showOpenDialog(parent, options)
-      : await dialog.showOpenDialog(options)
+    const r = await showOpenDialogWithMemory(dialog, parent, options)
     return r.canceled || !r.filePaths[0] ? null : r.filePaths[0]
   })
 
@@ -3441,9 +3506,7 @@ export function registerSlidesIpc(): void {
       defaultPath: defaultName,
       filters: [{ name: 'PDF', extensions: ['pdf'] }],
     }
-    const r = parent
-      ? await dialog.showSaveDialog(parent, options)
-      : await dialog.showSaveDialog(options)
+    const r = await showSaveDialogWithMemory(dialog, parent, options)
     return r.canceled || !r.filePath ? null : r.filePath
   })
 
@@ -3869,7 +3932,9 @@ async function applyMainProcessProxy(): Promise<void> {
   // No environment variables: read the system proxy (requires app ready)
   try {
     await app.whenReady()
-    const resolved = await electronSession.defaultSession.resolveProxy('https://api.anthropic.com')
+    // PAC/rule proxies answer per-host: probe the host the login flow, the
+    // Genspark LLM proxy and the gsk CLI actually target
+    const resolved = await electronSession.defaultSession.resolveProxy('https://www.genspark.ai/')
     // resolveProxy returns strings like "PROXY 127.0.0.1:1087" or "DIRECT"
     const m = /PROXY\s+([^;]+)/i.exec(resolved || '')
     if (m) {

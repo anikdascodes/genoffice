@@ -269,6 +269,9 @@ export class AgentLoop<TSnapshot = unknown> {
     // drop it so the model never sees two adjacent user turns as one combined instruction
     while (this.history.at(-1)?.role === 'user') this.history.pop()
     this.trimHistory()
+    if (userMsg.role === 'user') {
+      userMsg = { ...userMsg, text: sanitizeAgentPayload(userMsg.text) }
+    }
     this.runUserMsg = userMsg
     this.history.push(userMsg)
     this.startTurn()
@@ -615,4 +618,23 @@ export class AgentLoop<TSnapshot = unknown> {
     events?.onTurnEnd?.()
     this.startTurn()
   }
+}
+
+/**
+ * Redact secret-looking tokens from an outgoing user message so accidentally
+ * pasted API keys, URL credentials, and password assignments don't reach
+ * remote model APIs verbatim.
+ *
+ * Imported from public PR #32 (BuiltByHarshil), with the credential pattern
+ * narrowed to URL userinfo (scheme://user:pass@host) so ordinary "a:b@c"
+ * prose is never rewritten.
+ */
+export function sanitizeAgentPayload(payload: string): string {
+  return payload
+    .replace(/\b(?:sk-|AIza|ghp_|secret_)[A-Za-z0-9_-]{16,}/g, '[REDACTED_API_KEY]')
+    .replace(/([a-z][a-z0-9+.-]*:\/\/[^\s:@/]+):[^\s@/]+@/gi, '$1:[REDACTED_CREDENTIALS]@')
+    .replace(
+      /(password|passwd|secret_key|private_key)(\s*[:=]\s*)["'][^"']+["']/gi,
+      '$1$2"[REDACTED_SECURE_TOKEN]"',
+    )
 }

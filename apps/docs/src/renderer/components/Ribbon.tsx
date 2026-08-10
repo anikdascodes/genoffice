@@ -1,7 +1,8 @@
-import { memo, useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import type { ChainedCommands, Editor } from '@tiptap/core'
 import type { Command } from '@tiptap/pm/state'
+import type { Node as PMNode } from '@tiptap/pm/model'
 import {
   addColumnAfter,
   addColumnBefore,
@@ -24,6 +25,7 @@ import type {
   SectionSettings,
   SourceInfo,
   StyleInfo,
+  TextboxDisplay,
   ThemeColors,
   ThemeFonts,
 } from '@genoffice/docx-engine'
@@ -35,7 +37,7 @@ import type { InkTool } from '../editor/ink'
 import type { RibbonFormatState } from './ribbon-format-state'
 import { setSelectedColumnWidth } from '../editor/table-sizing'
 import { useI18n, type StringKey } from '../i18n/locale'
-import { fontFamiliesFor } from '../font-list'
+import { fontFamiliesFor, isEastAsianFontName } from '../font-list'
 import { cssFontFamily } from '../line-metrics'
 import {
   DesignTab,
@@ -88,8 +90,12 @@ import {
   IconPalette,
   IconPaste,
   IconPilcrow,
+  IconFlipH,
+  IconFlipV,
   IconRemoveBg,
   IconReplacePicture,
+  IconRotateLeft,
+  IconRotateRight,
   IconRowDelete,
   IconRowInsertAbove,
   IconRowInsertBelow,
@@ -240,7 +246,12 @@ const TABS = (
 ) as readonly string[]
 const TABLE_TABS = ['tableDesign', 'tableLayout'] as const
 const IMAGE_TABS = ['pictureFormat'] as const
-type RibbonTab = (typeof TABS)[number] | (typeof TABLE_TABS)[number] | (typeof IMAGE_TABS)[number]
+const SHAPE_TABS = ['shapeFormat'] as const
+type RibbonTab =
+  | (typeof TABS)[number]
+  | (typeof TABLE_TABS)[number]
+  | (typeof IMAGE_TABS)[number]
+  | (typeof SHAPE_TABS)[number]
 
 // tab values double as internal-state / external tabRequest keys; translated for display via these string keys
 const TAB_LABEL_KEYS: Record<string, StringKey> = {
@@ -256,6 +267,7 @@ const TAB_LABEL_KEYS: Record<string, StringKey> = {
   tableDesign: 'ribbonTabTableDesign',
   tableLayout: 'ribbonTabTableLayout',
   pictureFormat: 'ribbonTabPictureFormat',
+  shapeFormat: 'ribbonTabShapeFormat',
 }
 
 /** CSS px per cm at 96dpi (size inputs display in centimeters) */
@@ -276,6 +288,11 @@ const NOOP_CHAIN = new Proxy(
 const FONT_SIZES = [
   5, 5.5, 6.5, 7.5, 8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72,
 ]
+
+// A+/A- clicks closer together than this coalesce into one trailing apply;
+// must sit above burst-click spacing (~100-200ms) yet stay short enough that
+// the deferred re-layout still feels attached to the click.
+const FONT_STEP_COALESCE_MS = 300
 
 const THEME_COLORS: Array<{ nameKey: StringKey; hex: string }> = [
   { nameKey: 'ribbonColorWhite', hex: 'FFFFFF' },
@@ -366,6 +383,77 @@ const COLORS: Array<{ nameKey: StringKey; hex: string }> = [
   { nameKey: 'ribbonColorDarkBlue', hex: '002060' },
   { nameKey: 'ribbonColorPurple', hex: '7030A0' },
 ]
+
+/** Theme + standard color palette for shape fill/outline (Shape Format tab) */
+function ShapeColorPalette({
+  current,
+  noneLabel,
+  onPick,
+}: {
+  current: string | null
+  noneLabel: string
+  onPick: (hex: string | null) => void
+}) {
+  const { t } = useI18n()
+  return (
+    <div className="color-palette color-palette-word">
+      <button
+        className={`color-automatic ${!current ? 'selected' : ''}`}
+        onClick={() => onPick(null)}
+      >
+        {noneLabel}
+      </button>
+      <div className="color-section-title">{t('ribbonThemeColorsSection')}</div>
+      <div className="color-theme-base">
+        {THEME_COLORS.map((c) => (
+          <button
+            key={c.hex}
+            className={`color-swatch color-swatch-large ${current === c.hex ? 'selected' : ''}`}
+            title={t(c.nameKey)}
+            style={{ background: `#${c.hex}` }}
+            onClick={() => onPick(c.hex)}
+          />
+        ))}
+      </div>
+      <div className="color-theme-shades">
+        {THEME_COLOR_SHADES.flatMap((row, rowIndex) =>
+          row.map((hex, columnIndex) => (
+            <button
+              key={`${rowIndex}-${columnIndex}-${hex}`}
+              className={`color-swatch color-swatch-large ${current === hex ? 'selected' : ''}`}
+              title={t('ribbonThemeColorShadeTip', { r: rowIndex + 1, c: columnIndex + 1 })}
+              style={{ background: `#${hex}` }}
+              onClick={() => onPick(hex)}
+            />
+          )),
+        )}
+      </div>
+      <div className="color-section-title color-standard-title">{t('ribbonStandardColors')}</div>
+      <div className="color-standard-row">
+        {COLORS.map((c) => (
+          <button
+            key={c.hex}
+            className={`color-swatch color-swatch-large ${current === c.hex ? 'selected' : ''}`}
+            title={t(c.nameKey)}
+            style={{ background: `#${c.hex}` }}
+            onClick={() => onPick(c.hex)}
+          />
+        ))}
+      </div>
+      <label className="color-more">
+        <span className="color-more-icon">
+          <IconPalette size={16} />
+        </span>
+        {t('ribbonMoreColors')}
+        <input
+          type="color"
+          value={`#${current ?? '4472C4'}`}
+          onChange={(e) => onPick(e.target.value.slice(1).toUpperCase())}
+        />
+      </label>
+    </div>
+  )
+}
 
 /** Word text highlight colors (OOXML named values) */
 const HIGHLIGHTS = [
@@ -591,6 +679,15 @@ function RibbonInner({
   const [penHighlight, setPenHighlight] = useState('yellow')
   const [painter, setPainter] = useState<PainterState | null>(null)
   const ribbonRef = useRef<HTMLDivElement>(null)
+  const fontStepRef = useRef<{
+    pending: number | null
+    applied: number | null
+    timer: number | null
+    // editor snapshot the deferred apply validates against (stale-apply guard)
+    anchor: number
+    head: number
+    doc: PMNode | null
+  }>({ pending: null, applied: null, timer: null, anchor: -1, head: -1, doc: null })
   const lastRegularTab = useRef<(typeof TABS)[number]>('home')
   const wasInTable = useRef(false)
   const wasInImage = useRef(false)
@@ -664,12 +761,50 @@ function RibbonInner({
     }
   }, [inImage])
 
+  // ---- Shape Format (contextual tab when a floating box is selected, same mechanism) ----
+  const inShape = !sub && fs.textboxSelected
+  const shapeIsLine = !!fs.shapePrst?.startsWith('line')
+  const wasInShape = useRef(false)
+
+  useEffect(() => {
+    if (inShape && !wasInShape.current) {
+      wasInShape.current = true
+      setDropdown(null)
+      setTab('shapeFormat')
+    } else if (!inShape && wasInShape.current) {
+      wasInShape.current = false
+      setDropdown(null)
+      setTab((current) => (current === 'shapeFormat' ? lastRegularTab.current : current))
+    }
+  }, [inShape])
+
+  /** apply fill/outline to the selected floating box (first box of the node) */
+  const setShapeStyle = (patch: { fill?: string | null; borderColor?: string | null }) => {
+    if (!canEdit) return
+    const attrs = editor.getAttributes('docProtected')
+    const boxes = attrs?.textboxes as TextboxDisplay[] | null
+    if (!Array.isArray(boxes) || boxes.length === 0) return
+    const box = { ...boxes[0] }
+    if ('fill' in patch) {
+      if (patch.fill) box.fill = patch.fill
+      else delete box.fill
+    }
+    if ('borderColor' in patch) {
+      if (patch.borderColor) box.borderColor = patch.borderColor
+      else delete box.borderColor
+    }
+    editor
+      .chain()
+      .focus()
+      .updateAttributes('docProtected', { textboxes: [box, ...boxes.slice(1)] })
+      .run()
+  }
+
   /**
    * Replace the selected image's bytes (shared by Replace Picture / remove background / crop).
-   * The original image's patch-save only supports size/alignment/wrap; swapping bytes must go
-   * through the genImage new-image embed branch, so docxIndex is cleared (on save the old
-   * block is treated as deleted, the new image is written at the same position, and
-   * alignment/wrap are inherited from attributes).
+   * Original images (docxIndex set) swap bytes in place via the imageReplace patch: the
+   * drawing XML survives, so wrap/position/docxIndex — and with them the Position gallery —
+   * keep working. Images not yet saved (genImage) just update their pending payload.
    * Display size keeps the current width; height adapts to the new image's aspect ratio.
    */
   const applyPictureBytes = async (dataUrl: string) => {
@@ -683,6 +818,7 @@ function RibbonInner({
       const currentW = Number(attrs.imageWidthPx) || Math.min(natural.width, 620)
       const w = Math.max(1, Math.round(currentW))
       const h = Math.max(1, Math.round((currentW * natural.height) / natural.width))
+      const isOriginal = attrs.docxIndex !== null && attrs.docxIndex !== undefined
       editor
         .chain()
         .focus()
@@ -690,8 +826,9 @@ function RibbonInner({
           imageDataUrl: dataUrl,
           imageWidthPx: w,
           imageHeightPx: h,
-          genImage: { base64: m[2], mime: m[1], widthPx: w, heightPx: h },
-          docxIndex: null,
+          ...(isOriginal
+            ? { imageReplace: { base64: m[2], mime: m[1] } }
+            : { genImage: { base64: m[2], mime: m[1], widthPx: w, heightPx: h } }),
         })
         .run()
     } catch {
@@ -703,6 +840,30 @@ function RibbonInner({
     const picked = await window.desktop.pickImage()
     if (!picked) return
     await applyPictureBytes(`data:${picked.mime};base64,${picked.base64}`)
+  }
+
+  const rotatePicture = (deltaDeg: number) => {
+    if (!canEdit) return
+    const attrs = editor.getAttributes('docProtected')
+    if (attrs?.blockType !== 'image') return
+    const next = ((((Number(attrs.imageRotDeg) || 0) + deltaDeg) % 360) + 360) % 360
+    editor
+      .chain()
+      .focus()
+      .updateAttributes('docProtected', { imageRotDeg: next || null })
+      .run()
+  }
+
+  const flipPicture = (axis: 'h' | 'v') => {
+    if (!canEdit) return
+    const attrs = editor.getAttributes('docProtected')
+    if (attrs?.blockType !== 'image') return
+    const key = axis === 'h' ? 'imageFlipH' : 'imageFlipV'
+    editor
+      .chain()
+      .focus()
+      .updateAttributes('docProtected', { [key]: !attrs[key] })
+      .run()
   }
 
   /** Set the image display size proportionally (cm input; either side drives the other) */
@@ -896,6 +1057,22 @@ function RibbonInner({
           : presetActive('italic')
             ? 'char:__preset_emphasis'
             : 'p'
+
+  // Style gallery overflow: the inline row clips (the ribbon row cannot grow),
+  // so a "more styles" expander must appear whenever cards are cut off.
+  const styleGalleryRef = useRef<HTMLDivElement | null>(null)
+  const [styleGalleryOverflow, setStyleGalleryOverflow] = useState(false)
+  useLayoutEffect(() => {
+    const el = styleGalleryRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const check = () => setStyleGalleryOverflow(el.scrollWidth - el.clientWidth > 1)
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+    // scrollWidth changes don't fire the observer: re-check when the card set can change
+  }, [tab, charStyleItems.length, lang])
+
   const currentSize = fs.fontSizePt
   const currentFont = fs.fontFamily
   // The "(Body)" entry means "no explicit run font — inherit the document's body
@@ -916,6 +1093,13 @@ function RibbonInner({
   const setTextStyle = (patch: Record<string, unknown>) => {
     chain().setMark('docTextStyle', patch).run()
     setDropdown(null)
+  }
+
+  /** font picks target only their script's rFonts slot (Word never flattens the other one) */
+  const setFont = (name: string | null) => {
+    if (!name) setTextStyle({ font: null, fontAscii: null })
+    else if (isEastAsianFontName(name)) setTextStyle({ font: name })
+    else setTextStyle({ fontAscii: name })
   }
 
   /** apply paragraph-level attrs to every block type in the selection */
@@ -987,8 +1171,14 @@ function RibbonInner({
         if (!node.isText) return
         const m = node.marks.find((mm) => mm.type === type)
         if (!m) return
-        if (m.attrs.color == null && m.attrs.sizeHalfPoints == null && m.attrs.font == null) return
-        const attrs = { ...m.attrs, color: null, sizeHalfPoints: null, font: null }
+        if (
+          m.attrs.color == null &&
+          m.attrs.sizeHalfPoints == null &&
+          m.attrs.font == null &&
+          m.attrs.fontAscii == null
+        )
+          return
+        const attrs = { ...m.attrs, color: null, sizeHalfPoints: null, font: null, fontAscii: null }
         const keep = Object.values(attrs).some((v) => v !== null)
         jobs.push({
           from: Math.max(pos, start),
@@ -1002,6 +1192,43 @@ function RibbonInner({
       }
       return true
     }).run()
+  }
+
+  /** Style cards, shared by the inline gallery and its overflow menu */
+  const renderStyleCards = (inMenu: boolean) => {
+    const apply = (key: string) => {
+      applyStyle(key)
+      if (inMenu) setDropdown(null)
+    }
+    return (
+      <>
+        {STYLE_GALLERY.map((s) => (
+          <button
+            key={s.key}
+            className={`style-card ${activeStyleKey === s.key ? 'active' : ''}`}
+            disabled={!canEdit || !!sub}
+            onClick={() => apply(s.key)}
+          >
+            <span className={`style-card-preview ${s.className}`}>{t('ribbonStylePreview')}</span>
+            <span className="style-card-label">{t(s.labelKey)}</span>
+          </button>
+        ))}
+        {charStyleItems.map((s) => (
+          <button
+            key={s.key}
+            className={`style-card style-card-char ${activeStyleKey === s.key ? 'active' : ''}`}
+            disabled={!canEdit}
+            title={s.label}
+            onClick={() => apply(s.key)}
+          >
+            <span className="style-card-preview" style={s.previewStyle}>
+              Aa
+            </span>
+            <span className="style-card-label">{s.label}</span>
+          </button>
+        ))}
+      </>
+    )
   }
 
   const toggleList = (kind: 'bullet' | 'ordered') => {
@@ -1033,18 +1260,59 @@ function RibbonInner({
   }
 
   const stepFontSize = (dir: 1 | -1) => {
-    const idx = FONT_SIZES.findIndex((s) => s >= currentSize)
-    let next: number
-    if (dir === 1)
-      next =
-        FONT_SIZES[
+    const step = (base: number): number => {
+      const idx = FONT_SIZES.findIndex((s) => s >= base)
+      if (dir === 1)
+        return FONT_SIZES[
           Math.min(
-            idx === -1 ? FONT_SIZES.length : idx + (FONT_SIZES[idx] === currentSize ? 1 : 0),
+            idx === -1 ? FONT_SIZES.length : idx + (FONT_SIZES[idx] === base ? 1 : 0),
             FONT_SIZES.length - 1,
           )
         ]
-    else next = FONT_SIZES[Math.max(idx === -1 ? FONT_SIZES.length - 1 : idx - 1, 0)]
-    setTextStyle({ sizeHalfPoints: Math.round(next * 2) })
+      return FONT_SIZES[Math.max(idx === -1 ? FONT_SIZES.length - 1 : idx - 1, 0)]
+    }
+    // Every applied size change re-paginates the whole document synchronously —
+    // ~700ms per click on table-heavy documents — so clicking A+/A- in a burst
+    // froze the UI for seconds. Apply the first click immediately (a single
+    // click keeps instant feedback); clicks landing inside the coalesce window
+    // only advance the pending size, and one trailing apply lays out the final
+    // size. `pending` also covers fs.fontSizePt lagging the last apply within
+    // the window.
+    const st = fontStepRef.current
+    const next = step(st.pending ?? currentSize)
+    st.pending = next
+    if (st.timer === null) {
+      st.applied = next
+      setTextStyle({ sizeHalfPoints: Math.round(next * 2) })
+    } else {
+      window.clearTimeout(st.timer)
+    }
+    // Snapshot after the (possible) leading apply: the deferred apply is only
+    // valid while nothing else has touched the editor. A selection move, an
+    // undo, or a size set another way each shows up as a selection or document
+    // change and must invalidate the pending step instead of being overwritten.
+    const target = ed
+    st.anchor = target.state.selection.anchor
+    st.head = target.state.selection.head
+    st.doc = target.state.doc
+    st.timer = window.setTimeout(() => {
+      st.timer = null
+      const pending = st.pending
+      st.pending = null
+      if (pending === null || pending === st.applied || !canEdit) return
+      if (
+        target.state.selection.anchor !== st.anchor ||
+        target.state.selection.head !== st.head ||
+        target.state.doc !== st.doc
+      )
+        return
+      st.applied = pending
+      // deliberately no focus(): a deferred apply must never pull focus back
+      target
+        .chain()
+        .setMark('docTextStyle', { sizeHalfPoints: Math.round(pending * 2) })
+        .run()
+    }, FONT_STEP_COALESCE_MS)
   }
 
   const toggleVertAlign = (kind: 'superscript' | 'subscript') => {
@@ -1256,12 +1524,95 @@ function RibbonInner({
               {t(TAB_LABEL_KEYS[imageTab])}
             </button>
           ))}
+        {inShape &&
+          SHAPE_TABS.map((shapeTab) => (
+            <button
+              key={shapeTab}
+              className={`ribbon-tab ${tab === shapeTab ? 'active' : ''}`}
+              onClick={() => {
+                setTab(shapeTab)
+                setDropdown(null)
+              }}
+            >
+              {t(TAB_LABEL_KEYS[shapeTab])}
+            </button>
+          ))}
         <span className="ribbon-tabs-spacer" />
         {trailingActions}
       </div>
 
       <div className="ribbon-body">
-        {tab === 'pictureFormat' && inImage ? (
+        {tab === 'shapeFormat' && inShape ? (
+          <div className="table-ribbon-body">
+            <div className="ribbon-group">
+              <div className="ribbon-group-items">
+                {!shapeIsLine && (
+                  <div className="rb-split-wrap">
+                    <button
+                      className="rb-big"
+                      disabled={!canEdit}
+                      title={t('ribbonShapeFillTip')}
+                      onClick={() => setDropdown((v) => (v === 'shapeFill' ? null : 'shapeFill'))}
+                    >
+                      <span className="rb-big-icon">
+                        <IconShading />
+                        <span
+                          className="rb-color-bar"
+                          style={{ background: fs.shapeFill ? `#${fs.shapeFill}` : 'transparent' }}
+                        />
+                      </span>
+                      <span>{t('ribbonShapeFill')}</span>
+                    </button>
+                    {dropdown === 'shapeFill' && (
+                      <ShapeColorPalette
+                        current={fs.shapeFill}
+                        noneLabel={t('ribbonNoFill')}
+                        onPick={(hex) => {
+                          setShapeStyle({ fill: hex })
+                          setDropdown(null)
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+                <div className="rb-split-wrap">
+                  <button
+                    className="rb-big"
+                    disabled={!canEdit}
+                    title={t('ribbonShapeOutlineTip')}
+                    onClick={() =>
+                      setDropdown((v) => (v === 'shapeOutline' ? null : 'shapeOutline'))
+                    }
+                  >
+                    <span className="rb-big-icon">
+                      <IconBorderAll />
+                      <span
+                        className="rb-color-bar"
+                        style={{
+                          background: fs.shapeBorderColor
+                            ? `#${fs.shapeBorderColor}`
+                            : 'transparent',
+                        }}
+                      />
+                    </span>
+                    <span>{t('ribbonShapeOutline')}</span>
+                  </button>
+                  {dropdown === 'shapeOutline' && (
+                    <ShapeColorPalette
+                      current={fs.shapeBorderColor}
+                      noneLabel={t('ribbonNoOutline')}
+                      onPick={(hex) => {
+                        setShapeStyle({ borderColor: hex })
+                        setDropdown(null)
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+              <div className="ribbon-group-label">{t('ribbonGroupShapeStyles')}</div>
+            </div>
+          </div>
+        ) : tab === 'pictureFormat' && inImage ? (
           <div className="table-ribbon-body">
             {/* ---- Adjust: remove background / crop / replace picture ---- */}
             <div className="ribbon-group">
@@ -1358,6 +1709,40 @@ function RibbonInner({
                     {icon}
                   </button>
                 ))}
+              </div>
+              <div className="table-tool-row">
+                <button
+                  className="table-tool-button"
+                  disabled={!canEdit}
+                  title={t('ribbonRotateRight')}
+                  onClick={() => rotatePicture(90)}
+                >
+                  <IconRotateRight />
+                </button>
+                <button
+                  className="table-tool-button"
+                  disabled={!canEdit}
+                  title={t('ribbonRotateLeft')}
+                  onClick={() => rotatePicture(-90)}
+                >
+                  <IconRotateLeft />
+                </button>
+                <button
+                  className={fs.imageFlipH ? 'table-tool-button active' : 'table-tool-button'}
+                  disabled={!canEdit}
+                  title={t('ribbonFlipH')}
+                  onClick={() => flipPicture('h')}
+                >
+                  <IconFlipH />
+                </button>
+                <button
+                  className={fs.imageFlipV ? 'table-tool-button active' : 'table-tool-button'}
+                  disabled={!canEdit}
+                  title={t('ribbonFlipV')}
+                  onClick={() => flipPicture('v')}
+                >
+                  <IconFlipV />
+                </button>
               </div>
               <div className="ribbon-group-label">{t('ribbonGroupArrange')}</div>
             </div>
@@ -1881,7 +2266,7 @@ function RibbonInner({
                       }}
                       onBlur={(e) => {
                         const v = e.target.value.trim()
-                        if (v !== currentFont) setTextStyle({ font: v || null })
+                        if (v !== currentFont) setFont(v || null)
                       }}
                     />
                     <button
@@ -1897,7 +2282,7 @@ function RibbonInner({
                         <button
                           className={!currentFont ? 'active' : ''}
                           style={{ fontFamily: cssFontFamily(bodyFontName) }}
-                          onClick={() => setTextStyle({ font: null })}
+                          onClick={() => setFont(null)}
                         >
                           {t('ribbonFontBodyNamed', { font: bodyFontName })}
                         </button>
@@ -1908,7 +2293,7 @@ function RibbonInner({
                               key={f}
                               className={f === currentFont ? 'active' : ''}
                               style={{ fontFamily: cssFontFamily(f) }}
-                              onClick={() => setTextStyle({ font: f })}
+                              onClick={() => setFont(f)}
                             >
                               {f}
                             </button>
@@ -2515,37 +2900,28 @@ function RibbonInner({
             <div className="ribbon-sep" />
 
             {/* ---- Styles ---- */}
-            <div className="ribbon-group">
-              <div className="ribbon-group-items style-gallery">
-                {STYLE_GALLERY.map((s) => (
+            <div className="ribbon-group ribbon-group-styles">
+              <div className="ribbon-group-items rb-split-wrap style-gallery-wrap">
+                <div className="style-gallery" ref={styleGalleryRef}>
+                  {renderStyleCards(false)}
+                </div>
+                {/* clipped cards stay reachable through the expander grid */}
+                {styleGalleryOverflow && (
                   <button
-                    key={s.key}
-                    className={`style-card ${activeStyleKey === s.key ? 'active' : ''}`}
-                    disabled={!canEdit || !!sub}
-                    onClick={() => applyStyle(s.key)}
+                    className="style-gallery-more"
+                    title={t('ribbonMoreStyles')}
+                    aria-label={t('ribbonMoreStyles')}
+                    aria-expanded={dropdown === 'styleGallery'}
+                    onClick={() =>
+                      setDropdown((v) => (v === 'styleGallery' ? null : 'styleGallery'))
+                    }
                   >
-                    <span className={`style-card-preview ${s.className}`}>
-                      {t('ribbonStylePreview')}
-                    </span>
-                    <span className="style-card-label">{t(s.labelKey)}</span>
+                    <IconCaret />
                   </button>
-                ))}
-                {/* all visible character styles render inline: the styles panel
-                    that used to catch the overflow is gone */}
-                {charStyleItems.map((s) => (
-                  <button
-                    key={s.key}
-                    className={`style-card style-card-char ${activeStyleKey === s.key ? 'active' : ''}`}
-                    disabled={!canEdit}
-                    title={s.label}
-                    onClick={() => applyStyle(s.key)}
-                  >
-                    <span className="style-card-preview" style={s.previewStyle}>
-                      Aa
-                    </span>
-                    <span className="style-card-label">{s.label}</span>
-                  </button>
-                ))}
+                )}
+                {dropdown === 'styleGallery' && (
+                  <div className="style-gallery-menu">{renderStyleCards(true)}</div>
+                )}
               </div>
               <div className="ribbon-group-label">{t('ribbonGroupStyles')}</div>
             </div>

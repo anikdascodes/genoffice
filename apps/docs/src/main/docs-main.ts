@@ -18,6 +18,8 @@ import {
   installContextMenu,
   installNavigationGuard,
   safeExternalUrl,
+  showOpenDialogWithMemory,
+  showSaveDialogWithMemory,
   windowMenuTemplate,
 } from '@genoffice/electron-utils'
 import { createI18n, getUiLang, normalizeLang, setUiLang } from '@genoffice/i18n'
@@ -1895,13 +1897,11 @@ function dialogParent(event: IpcMainInvokeEvent): BrowserWindow | undefined {
 }
 
 async function openDialog(event: IpcMainInvokeEvent, options: OpenDialogOptions) {
-  const parent = dialogParent(event)
-  return parent ? dialog.showOpenDialog(parent, options) : dialog.showOpenDialog(options)
+  return showOpenDialogWithMemory(dialog, dialogParent(event), options)
 }
 
 async function saveDialog(event: IpcMainInvokeEvent, options: SaveDialogOptions) {
-  const parent = dialogParent(event)
-  return parent ? dialog.showSaveDialog(parent, options) : dialog.showSaveDialog(options)
+  return showSaveDialogWithMemory(dialog, dialogParent(event), options)
 }
 
 /** default folder where new files land on their first (silent) save; shared with the other editors via shell */
@@ -2111,7 +2111,13 @@ function allowPdfWrite(wcId: number, filePath: string): void {
   pdfWritablePaths.set(wcId, set)
 }
 
+// Fidelity-harness escape hatch: headless runs have no save dialog to authorize
+// paths, so an explicitly configured directory (set only by our test scripts)
+// is treated as pre-authorized for PDF export.
+const testExportDir = process.env.GENOFFICE_TEST_EXPORT_DIR || null
+
 function canPdfWrite(wcId: number, filePath: string): boolean {
+  if (testExportDir && filePath.startsWith(testExportDir + '/')) return true
   return pdfWritablePaths.get(wcId)?.has(filePath) === true
 }
 
@@ -3167,6 +3173,26 @@ function sendCommand(command: MenuCommand, payload?: string): void {
   activeDocsWebContents()?.send('menu:command', command, payload)
 }
 
+/**
+ * Per-tab View-menu toggle state (AI Sidebar / Dark Mode), reported by each
+ * renderer whenever it changes. The template can't hardcode `checked` — the
+ * state lives in the renderer and differs per tab — so builds read the active
+ * tab's last report, and reports from the active tab patch the built menu in
+ * place (buildDocsMenu also re-runs on every tab focus switch).
+ * Defaults mirror the renderer's initial state: sidebar shown, light canvas.
+ */
+const viewMenuStateByWebContents = new Map<number, { aiSidebar: boolean; darkCanvas: boolean }>()
+
+function activeViewMenuState(): { aiSidebar: boolean; darkCanvas: boolean } {
+  const id = activeDocsWebContents()?.id
+  return (
+    (id !== undefined ? viewMenuStateByWebContents.get(id) : undefined) ?? {
+      aiSidebar: true,
+      darkCanvas: false,
+    }
+  )
+}
+
 /** shell-injected items appended to the File menu (e.g. Back to Home); persists
  * across the internal rebuilds pushRecent() triggers */
 let extraFileMenuItems: MenuItemConstructorOptions[] = []
@@ -3307,8 +3333,20 @@ export function buildDocsMenu(): void {
         { label: tm('menuPageWidth'), click: () => sendCommand('zoom-page-width') },
         { label: tm('menuWholePage'), click: () => sendCommand('zoom-whole-page') },
         { type: 'separator' },
-        { label: tm('menuAiSidebar'), click: () => sendCommand('toggle-ai') },
-        { label: tm('menuDarkMode'), click: () => sendCommand('toggle-dark') },
+        {
+          id: 'docs-menu-ai-sidebar',
+          type: 'checkbox',
+          checked: activeViewMenuState().aiSidebar,
+          label: tm('menuAiSidebar'),
+          click: () => sendCommand('toggle-ai'),
+        },
+        {
+          id: 'docs-menu-dark-mode',
+          type: 'checkbox',
+          checked: activeViewMenuState().darkCanvas,
+          label: tm('menuDarkMode'),
+          click: () => sendCommand('toggle-dark'),
+        },
         { type: 'separator' },
         { role: 'togglefullscreen', label: tm('menuFullscreen') },
         ...(isDev ? [{ role: 'toggleDevTools' as const }] : []),
@@ -3473,6 +3511,24 @@ interface DocsCloseState {
 }
 const closeCheckWaiters = new Map<number, (state: DocsCloseState) => void>()
 const closeSaveWaiters = new Map<number, (ok: boolean) => void>()
+
+ipcMain.on('docs:view-menu-state', (event, state: unknown) => {
+  const s = state as { aiSidebar?: unknown; darkCanvas?: unknown } | null
+  const next = { aiSidebar: s?.aiSidebar === true, darkCanvas: s?.darkCanvas === true }
+  if (!viewMenuStateByWebContents.has(event.sender.id)) {
+    const id = event.sender.id
+    event.sender.once('destroyed', () => viewMenuStateByWebContents.delete(id))
+  }
+  viewMenuStateByWebContents.set(event.sender.id, next)
+  // patch the live menu only for the active tab; an inactive tab's state gets
+  // picked up by the buildDocsMenu run its next focus triggers
+  if (event.sender.id !== activeDocsWebContents()?.id) return
+  const menu = Menu.getApplicationMenu()
+  const ai = menu?.getMenuItemById('docs-menu-ai-sidebar')
+  if (ai) ai.checked = next.aiSidebar
+  const dark = menu?.getMenuItemById('docs-menu-dark-mode')
+  if (dark) dark.checked = next.darkCanvas
+})
 
 ipcMain.on('docs:close-check-result', (event, state: unknown) => {
   const waiter = closeCheckWaiters.get(event.sender.id)

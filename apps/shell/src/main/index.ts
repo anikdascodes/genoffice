@@ -16,6 +16,7 @@ import {
   dialog,
   ipcMain,
   nativeImage,
+  nativeTheme,
   session,
   shell,
   webContents,
@@ -106,7 +107,7 @@ import {
   requestPdfSaveAs,
   setPdfSaveAsInFlight,
 } from '../../../pdf/src/main/pdf-main'
-import type { RecentEntry, RecentPage, RenameResult } from '../shared/home-api'
+import type { RecentEntry, RecentPage, RenameResult, UiTheme } from '../shared/home-api'
 import { HOME_CHANNELS } from '../shared/home-api'
 import type { TabKind } from '../shared/tabs-api'
 import { TABS_CHANNELS } from '../shared/tabs-api'
@@ -214,9 +215,22 @@ function persistLang(lang: Lang): void {
   writeAppSetting(APP_SETTINGS_PATH(), 'language', lang)
 }
 
+let cachedUpdateChannel: UpdateChannel | null = null
+
 function currentUpdateChannel(): UpdateChannel {
+  if (cachedUpdateChannel) return cachedUpdateChannel
   const saved = readAppSettings(APP_SETTINGS_PATH()).updateChannel
-  return isUpdateChannel(saved) ? saved : 'stable'
+  cachedUpdateChannel = isUpdateChannel(saved) ? saved : 'stable'
+  return cachedUpdateChannel
+}
+
+let cachedTheme: UiTheme | null = null
+
+function currentTheme(): UiTheme {
+  if (cachedTheme) return cachedTheme
+  const saved = readAppSettings(APP_SETTINGS_PATH()).theme
+  cachedTheme = saved === 'light' || saved === 'dark' ? saved : 'system'
+  return cachedTheme
 }
 
 // ---- first-run onboarding ----
@@ -1438,6 +1452,16 @@ function registerHomeIpc(): void {
   })
 
   ipcMain.handle(HOME_CHANNELS.getUpdateChannel, (): UpdateChannel => currentUpdateChannel())
+  ipcMain.handle(HOME_CHANNELS.getTheme, (): UiTheme => currentTheme())
+  ipcMain.handle('app:get-theme', (): UiTheme => currentTheme())
+  ipcMain.handle(HOME_CHANNELS.setTheme, (_event, theme: unknown) => {
+    if (theme !== 'light' && theme !== 'dark' && theme !== 'system') return
+    if (theme === currentTheme()) return
+    cachedTheme = theme
+    writeAppSetting(APP_SETTINGS_PATH(), 'theme', theme)
+    nativeTheme.themeSource = theme
+    for (const wc of webContents.getAllWebContents()) wc.send('app:theme-changed', theme)
+  })
 
   ipcMain.handle(HOME_CHANNELS.setUpdateChannel, (_event, channel: unknown) => {
     if (!isUpdateChannel(channel) || channel === currentUpdateChannel()) return
@@ -1499,6 +1523,7 @@ const TAB_MENU_ICON: Record<TabKind, keyof MenuIconSet> = {
   sheets: 'xlsx',
   slides: 'pptx',
   pdf: 'pdf',
+  markdown: 'pdf',
 }
 
 function registerTabsIpc(): void {
@@ -1861,6 +1886,8 @@ app.whenReady().then(() => {
   // mutable lang, whose 'zh' default otherwise wins the race for whichever
   // tab loads first (e.g. sheets booting in Chinese while docs shows English).
   currentLang()
+  // native menus/dialogs/scrollbars follow the persisted theme from first paint
+  nativeTheme.themeSource = currentTheme()
   startSheetsCaptureServer()
   createShellWindow()
   // deferred to ready: labels need currentLang(), which reads app.getLocale()

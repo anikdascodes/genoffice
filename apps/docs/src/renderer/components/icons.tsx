@@ -317,8 +317,46 @@ export function IconRemoveBg(props: IconProps) {
 export function IconCrop(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M 5.41 2.97 v 7.62 h 7.62" />
-      <path d="M 2.97 5.41 h 7.62 v 7.62" />
+      <path d="M 5.33 3.17 v 7.5 h 7.5" />
+      <path d="M 3.17 5.33 h 7.5 v 7.5" />
+    </Svg>
+  )
+}
+
+export function IconRotateRight(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M 12.4 6.2 a 4.6 4.6 0 1 0 0.6 3.3" />
+      <path d="M 12.7 3.2 v 3 h -3" />
+    </Svg>
+  )
+}
+
+export function IconRotateLeft(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M 3.6 6.2 a 4.6 4.6 0 1 1 -0.6 3.3" />
+      <path d="M 3.3 3.2 v 3 h 3" />
+    </Svg>
+  )
+}
+
+export function IconFlipH(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M 8 2.6 v 10.8" strokeDasharray="1.7 1.5" />
+      <path d="M 6 5.2 L 2.6 8 L 6 10.8 Z" />
+      <path d="M 10 5.2 L 13.4 8 L 10 10.8 Z" fill="currentColor" />
+    </Svg>
+  )
+}
+
+export function IconFlipV(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M 2.6 8 h 10.8" strokeDasharray="1.7 1.5" />
+      <path d="M 5.2 6 L 8 2.6 L 10.8 6 Z" />
+      <path d="M 5.2 10 L 8 13.4 L 10.8 10 Z" fill="currentColor" />
     </Svg>
   )
 }
@@ -360,6 +398,14 @@ export function IconLink(props: IconProps) {
       <path d="M 6.91 9.09 9.09 6.91" />
       <path d="M 7.55 5.09 8.91 3.72 a 2.37 2.37 0 0 1 3.37 3.37 L 10.91 8.46" />
       <path d="M 8.46 10.91 7.09 12.28 a 2.37 2.37 0 0 1 -3.37 -3.37 l 1.37 -1.36" />
+    </Svg>
+  )
+}
+
+export function IconComments(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M 2.46 2.21 h 9.07 a 1.06 1.06 0 0 1 1.06 1.06 v 5.93 a 1.06 1.06 0 0 1 -1.06 1.06 h -3.53 L 5.27 12.8 V 10.26 h -2.81 a 1.06 1.06 0 0 1 -1.06 -1.06 v -5.93 a 1.06 1.06 0 0 1 1.06 -1.06 M 6.66 13.66 v -1.69 h 5.42 a 1.06 1.06 0 0 0 1.06 -1.06 V 5.55 h 2.28 a 1.06 1.06 0 0 1 1.06 1.06 V 12.7 a 1.06 1.06 0 0 1 -1.06 1.06 h -2.81 v 2.53 Z" fill="currentColor" stroke="none" />
     </Svg>
   )
 }

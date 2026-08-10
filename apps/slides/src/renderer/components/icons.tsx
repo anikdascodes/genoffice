@@ -1983,3 +1983,13 @@ export function IconAiImage(props: IconProps) {
   )
 }
 
+export function IconRemoveBg(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.02" y="3.85" width="9.96" height="8.3" rx="0.66" strokeDasharray="2.2 1.6" />
+      <circle cx="8" cy="6.92" r="1.41" />
+      <path d="M 5.43 12.15 c 0.33 -1.91 1.41 -2.9 2.57 -2.9 s 2.24 1 2.57 2.91" />
+    </Svg>
+  )
+}
+

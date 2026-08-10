@@ -2,12 +2,22 @@ import type { Node as PmNode } from '@tiptap/pm/model'
 import {} from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import {} from '@tiptap/pm/tables'
-import { cssFontFamily } from '../line-metrics'
+import { WORDART_PRESETS, wordArtStrokePx } from '@genoffice/ui'
+import {
+  autospaceBoundaries,
+  autospacePadBetween,
+  cssCsFontFamily,
+  cssDualFontFamily,
+  cssFontFamily,
+  textHasComplexScript,
+} from '../line-metrics'
+import { shapeBackgroundCss } from './shape-svg'
 import { t } from '../i18n/locale'
 import {
   type ChartDisplay,
   type FieldDisplay,
   type FormulaDisplay,
+  type Run,
   type TableModel,
   type TextboxDisplay,
 } from '@genoffice/docx-engine'
@@ -22,11 +32,14 @@ import {
   DomSpec,
   ProtectedContentEditor,
   TableBordersAttr,
+  borderLineCss,
+  cellClipStyle,
   cellPadCss,
   preventProtectedLineBreak,
   protectedText,
   tableBordersCss,
 } from './extensions'
+import { cellClipTwips } from './convert'
 
 // Word: links and TOC entries jump on modifier+click only
 const jumpHint = () =>
@@ -166,14 +179,26 @@ interface ChartGeom {
   bottom: number
 }
 
+/** widest a chart draws at; the resize handle clamps to this too so mouseup never snaps back */
+export const CHART_MAX_WIDTH_PX = 660
+
 /** draw the read-only SVG preview into the node's .doc-chart-canvas */
 export function drawChartSvg(dom: HTMLElement, chart: ChartDisplay | null): void {
   const canvas = dom.querySelector<HTMLElement>('.doc-chart-canvas')
   if (!canvas || !chart?.series.length) return
-  const geom: ChartGeom = { width: 560, height: 240, left: 46, right: 12, top: 12, bottom: 26 }
+  const geom: ChartGeom = {
+    width: Math.min(chart.widthPx ?? 560, CHART_MAX_WIDTH_PX),
+    height: chart.heightPx ?? 240,
+    left: 46,
+    right: 12,
+    top: 12,
+    bottom: 26,
+  }
   const svg = document.createElementNS(SVG_NS, 'svg')
   svg.setAttribute('viewBox', `0 0 ${geom.width} ${geom.height}`)
   svg.setAttribute('class', 'doc-chart-svg')
+  svg.style.width = `${geom.width}px`
+  svg.style.height = `${geom.height}px`
 
   if (chart.kind === 'pie') drawPie(svg, chart, geom)
   else drawAxes(svg, chart, geom)
@@ -391,30 +416,11 @@ export function wireChartEditing(
 }
 
 /** rendering of an anchored textbox (code box / callout card); text is editable in place */
-/** CSS clip-path/borderRadius for DrawingML prstGeom shapes. */
-const PRST_CSS: Record<string, { clipPath?: string; borderRadius?: string }> = {
-  roundRect: { borderRadius: '12%' },
-  ellipse: { borderRadius: '50%' },
-  triangle: { clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' },
-  rtTriangle: { clipPath: 'polygon(0% 0%, 0% 100%, 100% 100%)' },
-  diamond: { clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' },
-  parallelogram: { clipPath: 'polygon(15% 0%, 100% 0%, 85% 100%, 0% 100%)' },
-  pentagon: { clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' },
-  hexagon: { clipPath: 'polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)' },
-  star5: {
-    clipPath:
-      'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
-  },
-  rightArrow: { clipPath: 'polygon(0% 25%, 65% 25%, 65% 0%, 100% 50%, 65% 100%, 65% 75%, 0% 75%)' },
-  leftRightArrow: {
-    clipPath:
-      'polygon(0% 50%, 20% 0%, 20% 30%, 80% 30%, 80% 0%, 100% 50%, 80% 100%, 80% 70%, 20% 70%, 20% 100%)',
-  },
-}
-
 /**
  * WordArt preset CSS approximation applied to the entire textbox container.
  * color: used as -webkit-text-fill-color; stroke: optional -webkit-text-stroke.
+ * Derived from the shared cross-app presets; the wordArt-N entries keep
+ * sessions with blocks inserted by the old docs-only gallery rendering.
  */
 const WORDART_CSS: Record<string, { color: string; stroke?: string; textShadow?: string }> = {
   'wordArt-1': { color: '#4472C4' },
@@ -424,24 +430,38 @@ const WORDART_CSS: Record<string, { color: string; stroke?: string; textShadow?:
   'wordArt-5': { color: '#ED7D31', textShadow: '0 0 8px #ED7D31, 0 0 16px #ED7D31' },
   'wordArt-6': { color: '#C00000' },
 }
+for (const p of WORDART_PRESETS) {
+  WORDART_CSS[p.id] = {
+    color: p.fill,
+    stroke: p.outline ? `${wordArtStrokePx(p.outline.widthEmu)}px ${p.outline.color}` : undefined,
+  }
+}
 
 export function textboxBoxStyle(box: TextboxDisplay): string {
   const insetTop = box.insetTopPx ?? 4.8
   const insetRight = box.insetRightPx ?? 9.6
   const insetBottom = box.insetBottomPx ?? 4.8
   const insetLeft = box.insetLeftPx ?? 9.6
-  const shapeStyle = box.prst ? PRST_CSS[box.prst] : undefined
+  // preset geometry renders as an SVG background so the border follows the
+  // outline (a clip-path would clip a CSS outline away with the box corners)
+  const geomCss = box.prst
+    ? shapeBackgroundCss(
+        box.prst,
+        box.widthPx ?? 189,
+        box.heightPx ?? 113,
+        box.fill,
+        box.borderColor,
+      )
+    : null
   const waStyle = box.wordArtId ? WORDART_CSS[box.wordArtId] : undefined
   return [
-    box.fill ? `background:#${box.fill}` : '',
-    box.borderColor && !shapeStyle?.clipPath ? `border-color:#${box.borderColor}` : '',
-    box.borderColor && shapeStyle?.clipPath ? `outline:2px solid #${box.borderColor}` : '',
+    geomCss ?? '',
+    !geomCss && box.fill ? `background:#${box.fill}` : '',
+    !geomCss && box.borderColor ? `border-color:#${box.borderColor}` : '',
     box.widthPx ? `width:${box.widthPx}px` : '',
     // Word clips fixed-height (noAutofit) boxes instead of growing them
     box.heightPx ? `height:${box.heightPx}px` : '',
     `padding:${insetTop}px ${insetRight}px ${insetBottom}px ${insetLeft}px`,
-    shapeStyle?.clipPath ? `clip-path:${shapeStyle.clipPath}` : '',
-    shapeStyle?.borderRadius ? `border-radius:${shapeStyle.borderRadius}` : '',
     waStyle?.color ? `-webkit-text-fill-color:${waStyle.color}` : '',
     waStyle?.stroke ? `-webkit-text-stroke:${waStyle.stroke}` : '',
     waStyle?.textShadow ? `text-shadow:${waStyle.textShadow}` : '',
@@ -450,25 +470,72 @@ export function textboxBoxStyle(box: TextboxDisplay): string {
     .join(';')
 }
 
+const AUTOSPACE_PAD_SPEC: DomSpec = ['span', { class: 'doc-autospace-pad' }]
+
+/** static-DOM counterpart of the editor's autospace pad decorations */
+function padSegments(text: string): unknown[] {
+  const cuts = autospaceBoundaries(text)
+  if (cuts.length === 0) return [text]
+  const out: unknown[] = []
+  let start = 0
+  for (const cut of cuts) {
+    out.push(text.slice(start, cut), AUTOSPACE_PAD_SPEC)
+    start = cut
+  }
+  out.push(text.slice(start))
+  return out
+}
+
+/** run → styled <span> spec, shared by textbox and table-cell rendering */
+export function runSpanSpec(run: Run, autoSpace?: boolean): DomSpec {
+  const cs = run.csFont && textHasComplexScript(run.text) ? run.csFont : undefined
+  const runStyle = [
+    run.color ? `color:#${run.color}` : '',
+    run.bold ? 'font-weight:700' : '',
+    run.italic ? 'font-style:italic' : '',
+    run.underline ? 'text-decoration:underline' : '',
+    run.font || run.fontAscii || cs
+      ? `font-family:${
+          cs
+            ? cssCsFontFamily(cs, run.fontAscii, run.font)
+            : run.font && run.fontAscii
+              ? cssDualFontFamily(run.fontAscii, run.font)
+              : cssFontFamily((run.font ?? run.fontAscii)!)
+        }`
+      : '',
+    run.sizeHalfPoints ? `font-size:${run.sizeHalfPoints / 2}pt` : '',
+    // explicit autoSpaceDE/DN off also disables the browser's native gap (same as the editor path)
+    autoSpace === false ? 'text-autospace:no-autospace' : '',
+  ]
+    .filter(Boolean)
+    .join(';')
+  const content = autoSpace === false ? [run.text] : padSegments(run.text)
+  return runStyle ? ['span', { style: runStyle }, ...content] : ['span', {}, ...content]
+}
+
+/** run spans with pads at run-boundary CJK-Latin seams (empty runs keep their span, no pad) */
+function runSpansWithPads(runs: Run[], autoSpace?: boolean): DomSpec[] {
+  const out: DomSpec[] = []
+  let prevText = ''
+  for (const run of runs) {
+    if (run.text !== '') {
+      if (autoSpace !== false && autospacePadBetween(prevText, run.text)) {
+        out.push(AUTOSPACE_PAD_SPEC)
+      }
+      prevText = run.text
+    }
+    out.push(runSpanSpec(run, autoSpace))
+  }
+  return out
+}
+
 export function renderTextboxSpec(box: TextboxDisplay): DomSpec {
   const style = textboxBoxStyle(box)
   const boxAttrs: Record<string, string> = { class: 'doc-textbox' }
   if (style) boxAttrs.style = style
 
   const paras: DomSpec[] = box.paras.map((para) => {
-    const spans: DomSpec[] = para.runs.map((run) => {
-      const runStyle = [
-        run.color ? `color:#${run.color}` : '',
-        run.bold ? 'font-weight:700' : '',
-        run.italic ? 'font-style:italic' : '',
-        run.underline ? 'text-decoration:underline' : '',
-        run.font ? `font-family:${cssFontFamily(run.font)}` : '',
-        run.sizeHalfPoints ? `font-size:${run.sizeHalfPoints / 2}pt` : '',
-      ]
-        .filter(Boolean)
-        .join(';')
-      return runStyle ? ['span', { style: runStyle }, run.text] : ['span', {}, run.text]
-    })
+    const spans: DomSpec[] = runSpansWithPads(para.runs, para.autoSpace)
     const pStyles = [
       para.align ? `text-align:${para.align}` : '',
       para.lineSpacing ? `line-height:${para.lineSpacing * 1.2}` : '',
@@ -522,10 +589,19 @@ export function renderTableSpec(model: TableModel): DomSpec {
           : cell.textDirection === 'btLr'
             ? 'writing-mode:sideways-lr'
             : '',
-        cell.fill ? `background:#${cell.fill}` : '',
         cell.color ? `color:#${cell.color}` : '',
         cell.bold ? 'font-weight:600' : '',
+        cell.fill ? `background:#${cell.fill}` : '',
         cell.align ? `text-align:${cell.align}` : '',
+        cell.vAlign && cell.vAlign !== 'top'
+          ? `vertical-align:${cell.vAlign === 'center' ? 'middle' : 'bottom'}`
+          : '',
+        // w:tcBorders — nested/read-only tables get no default gridlines, so
+        // per-cell borders are the only line source for style-less documents
+        ...(['top', 'left', 'bottom', 'right'] as const).map((side) => {
+          const v = borderLineCss(cell.borders?.[side])
+          return v ? `border-${side}:${v}` : ''
+        }),
         ...(['top', 'left', 'bottom', 'right'] as const).map((side) =>
           cell.cellMarTwips?.[side] !== undefined
             ? `padding-${side}:${(cell.cellMarTwips[side]! / 15).toFixed(1)}px`
@@ -538,16 +614,53 @@ export function renderTableSpec(model: TableModel): DomSpec {
       if (style) tdAttrs.style = style
       if (cell.colSpan && cell.colSpan > 1) tdAttrs.colspan = String(cell.colSpan)
       if (rowSpan > 1) tdAttrs.rowspan = String(rowSpan)
+      // run-level styles preserved; <br> separators keep innerText \n-split
+      // semantics that nested-table edit write-back depends on
+      const paraBlocks: unknown[][] = cell.richParas?.length
+        ? cell.richParas.map((p) => [
+            ...runSpansWithPads(
+              p.runs.filter((run) => run.text !== ''),
+              p.autoSpace,
+            ),
+          ])
+        : cell.paras.map((p) => (p === '' ? [] : [...padSegments(p)]))
+      // nested tables spliced in at their paragraph anchors (cells with them are never editable)
+      const nested = cell.nestedTables ?? []
+      const anchorOf = (i: number) =>
+        Math.min(cell.nestedTableAnchors?.[i] ?? paraBlocks.length, paraBlocks.length)
       const content: unknown[] = []
-      cell.paras.forEach((p, i) => {
-        if (i > 0) content.push(['br', {}])
-        if (p !== '') content.push(p)
+      let ni = 0
+      let lastWasTable = false
+      paraBlocks.forEach((blk, pi) => {
+        while (ni < nested.length && anchorOf(ni) <= pi) {
+          content.push(renderTableSpec(nested[ni++]))
+          lastWasTable = true
+        }
+        if (pi > 0 && !lastWasTable) content.push(['br', {}])
+        content.push(...blk)
+        lastWasTable = false
       })
-      for (const nt of cell.nestedTables ?? []) content.push(renderTableSpec(nt))
+      while (ni < nested.length) content.push(renderTableSpec(nested[ni++]))
       if (content.length === 0) content.push('\u00a0')
-      tds.push(['td', tdAttrs, ...content])
+      const clip = cellClipTwips(model, ri, cell, rowSpan)
+      if (clip !== null) {
+        tds.push([
+          'td',
+          tdAttrs,
+          [
+            'div',
+            { class: 'cell-clip', style: cellClipStyle(cell.vAlign ?? null, clip) },
+            ...content,
+          ],
+        ])
+      } else {
+        tds.push(['td', tdAttrs, ...content])
+      }
     })
-    return ['tr', {}, ...tds]
+    const trAttrs: Record<string, string> = {}
+    const rh = model.rowHeightsTwips?.[ri]
+    if (rh) trAttrs.style = `height:${((rh / 1440) * 96).toFixed(1)}px`
+    return ['tr', trAttrs, ...tds]
   })
 
   const tableChildren: unknown[] = []
