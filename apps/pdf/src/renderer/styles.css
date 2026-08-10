@@ -1080,7 +1080,7 @@ button {
   gap: 8px;
 }
 
-/* Genspark DS modal footer buttons: secondary = bg-subtle, primary = black (#232425) */
+/* DS modal footer buttons: secondary = bg-subtle, primary = black (#232425) */
 .pdf-modal-btn {
   display: inline-flex;
   align-items: center;

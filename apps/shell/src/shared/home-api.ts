@@ -119,7 +119,7 @@ export interface HomeApi {
   openGenTeam(): Promise<void>
   /** locally stored full cloud project list (instant; null when no store or logged out) */
   cloudProjectsCached(): Promise<CloudProjectsSnapshot | null>
-  /** sync the full list from Genspark and return it (1 request when nothing changed); null when the sync failed */
+  /** sync the full list from the cloud and return it (1 request when nothing changed); null when the sync failed */
   cloudProjectsSync(): Promise<CloudProjectsSnapshot | null>
   /** open a cloud project (relative '/agents?id=...' URL) in the default browser */
   openCloudProject(projectUrl: string): Promise<void>
@@ -127,7 +127,7 @@ export interface HomeApi {
 
 export type CloudProjectKind = 'docs' | 'sheets' | 'slides'
 
-/** a Genspark web project shown in the home cloud section */
+/** a cloud-hosted project shown in the home cloud section */
 export interface CloudProjectEntry {
   projectId: string
   title: string
