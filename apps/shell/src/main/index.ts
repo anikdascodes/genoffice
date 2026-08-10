@@ -1714,7 +1714,7 @@ async function savePdfAs(): Promise<void> {
  * ~10s+) so re-triggering from the menu can never start a second paid conversion
  */
 /**
- * Export as Word ran through Genspark's cloud conversion service, which is no
+ * Export as Word ran through a hosted cloud conversion service, which is no
  * longer part of this fork. The menu item hides itself; if invoked anyway,
  * explain instead of failing opaquely.
  */

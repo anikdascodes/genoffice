@@ -565,7 +565,7 @@ function IconCollapse(): ReactElement {
   )
 }
 
-/** neutral AI sparkle glyph (replaces the Genspark brand mark), inline so it
+/** neutral AI sparkle glyph, inline so it
  * renders crisply at device resolution instead of going through <img> rasterization */
 export function AiSparkle({ size = 20 }: { size?: number }): React.JSX.Element {
   return (

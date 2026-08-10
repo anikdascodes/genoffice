@@ -1284,7 +1284,7 @@ export function registerSlidesIpc(): void {
     )
     return rebuildSlide(session, op.slideIndex)
   })
-  // ── Cloud single-page generation was a hosted Genspark service. It has been
+  // ── Cloud single-page generation was a hosted upstream service. It has been
   // removed; the channel remains so old renderers fail with a clean error, and
   // the html-to-pptx marker contract still round-trips should it ever return.
   const cloudSlideEnabled = () => false

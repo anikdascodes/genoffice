@@ -140,7 +140,7 @@ export function registerAiIpc(): void {
 // never called; docs does not have these channels, so putting them in the wrong place raises
 // "No handler registered".
 export function registerSlidesOnlyAiIpc(): void {
-  // AI image generation / media analysis were hosted Genspark services with no
+  // AI image generation / media analysis were hosted upstream services with no
   // open BYOAK equivalent; the channels stay as clean stubs so the renderer's
   // tool-call surface reports them as unavailable instead of failing to wire.
   ipcMain.handle('ai:generate-image', async () => ({ error: tm('errNoHostedImageGen') }))
